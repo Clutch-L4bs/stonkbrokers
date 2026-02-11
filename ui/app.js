@@ -490,19 +490,17 @@
 
   function shareSelectedNftOnX() {
     if (!selectedNft) return;
-    const explorerBase = (cfg.blockExplorerUrl || "").replace(/\/$/, "");
-    const imageUrl = nftImageUrl(selectedNft.tokenId);
-    const contractUrl = explorerBase ? `${explorerBase}/address/${cfg.nftAddress}` : "https://stonkbrokers.cash";
     const text =
       `Just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain Testnet.\n` +
-      `Wallet funded with ${selectedNft.tokenLabel}.` +
-      `\nSee my broker image: ${imageUrl}\n` +
+      `Funded token: $${selectedNft.tokenLabel}.\n` +
+      `Mint yours: https://stonkbrokers.cash\n` +
+      `Powered by Clutch Markets (@clutchmarkets)\n` +
       `#StonkBrokers #RobinhoodChain`;
-    const tweetUrl =
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}` +
-      (contractUrl ? `&url=${encodeURIComponent(contractUrl)}` : "");
+    const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    // Download the image automatically so attaching it in X is faster.
+    downloadSelectedNftImage(true);
     window.open(tweetUrl, "_blank", "noopener,noreferrer");
-    setShareHint("Tip: upload/download the SVG or use Copy Image Link for your X post.");
+    setShareHint("Caption opened on X and broker SVG downloaded. Attach the image to your post.");
   }
 
   async function copySelectedNftImageLink() {
@@ -516,7 +514,7 @@
     }
   }
 
-  function downloadSelectedNftImage() {
+  function downloadSelectedNftImage(silent = false) {
     if (!selectedNft) return;
     const url = nftImageUrl(selectedNft.tokenId);
     const a = document.createElement("a");
@@ -525,7 +523,9 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setShareHint("Downloaded SVG. You can upload it directly in X compose.");
+    if (!silent) {
+      setShareHint("Downloaded SVG. You can upload it directly in X compose.");
+    }
   }
 
   async function refreshSelectedNftModalBalance() {
