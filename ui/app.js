@@ -396,7 +396,21 @@
       updateSupplyBar(supply, 444);
       updateCostDisplay();
     } catch (_err) {
-      // Silently fail on init if wallet not connected
+      await refreshPublicMintInfo();
+    }
+  }
+
+  async function refreshPublicMintInfo() {
+    try {
+      // Read-only RPC fetch so total minted shows before wallet connection.
+      const publicProvider = new ethers.JsonRpcProvider(cfg.rpcUrl);
+      const publicNft = new ethers.Contract(cfg.nftAddress, nftAbi, publicProvider);
+      const [price, supply] = await Promise.all([publicNft.MINT_PRICE(), publicNft.totalSupply()]);
+      cachedPrice = price;
+      updateSupplyBar(supply, 444);
+    } catch (_error) {
+      // Keep UI responsive even if public RPC is temporarily unavailable.
+    } finally {
       updateCostDisplay();
     }
   }
@@ -493,9 +507,11 @@
     const text =
       `Just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain Testnet.\n` +
       `Funded token: $${selectedNft.tokenLabel}.\n` +
+      `Future: burn testnet brokers for mainnet brokers + 5% royalties planned for monthly stock-token wallet dividends.\n` +
       `Mint yours: https://stonkbrokers.cash\n` +
       `Powered by Clutch Markets (@clutchmarkets)\n` +
-      `#StonkBrokers #RobinhoodChain`;
+      `#StonkBrokers #RobinhoodChain\n` +
+      `⚠️ Testnet assets have no real-world value.`;
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     // Download the image automatically so attaching it in X is faster.
     downloadSelectedNftImage(true);
@@ -771,5 +787,6 @@
   showEmptyState();
   // Keep initial load fully read-only and non-interactive with wallet.
   // No wallet RPC calls until user presses Connect/Switch.
+  refreshPublicMintInfo();
   hideLoader();
 })();
