@@ -25,7 +25,6 @@
   const mintBtn = document.getElementById("mintBtn");
   const refreshBtn = document.getElementById("refreshBtn");
   const faucetLink = document.getElementById("faucetLink");
-  const thirdwebLink = document.getElementById("thirdwebLink");
   const contractLink = document.getElementById("contractLink");
   const contractAddr = document.getElementById("contractAddr");
   const qtyInput = document.getElementById("qty");
@@ -41,6 +40,7 @@
   const supplyText = document.getElementById("supplyText");
   const supplyFill = document.getElementById("supplyFill");
   const heroPreviewImg = document.getElementById("heroPreviewImg");
+  const appLoader = document.getElementById("appLoader");
   const nftModalBackdrop = document.getElementById("nftModalBackdrop");
   const nftModalClose = document.getElementById("nftModalClose");
   const nftModalImage = document.getElementById("nftModalImage");
@@ -173,6 +173,11 @@
     }
   }
 
+  function hideLoader() {
+    if (!appLoader) return;
+    appLoader.classList.add("hidden");
+  }
+
   /* ── Dynamic cost display ────────────────────────── */
   function updateCostDisplay() {
     if (!mintInfo) return;
@@ -212,14 +217,6 @@
   function configureLinks() {
     if (faucetLink) {
       faucetLink.href = cfg.faucetUrl || "https://faucet.testnet.chain.robinhood.com";
-    }
-    if (thirdwebLink) {
-      const base = cfg.thirdwebWalletUrl || "https://thirdweb.com/wallets";
-      const params = new URLSearchParams();
-      if (cfg.thirdwebClientId) params.set("clientId", cfg.thirdwebClientId);
-      const chainId = expectedChainDecimal();
-      if (chainId) params.set("chainId", String(chainId));
-      thirdwebLink.href = params.toString() ? `${base}?${params.toString()}` : base;
     }
     if (contractLink && contractAddr && cfg.nftAddress) {
       const explorer = (cfg.blockExplorerUrl || "").replace(/\/$/, "");
@@ -338,6 +335,10 @@
 
     window.ethereum.on("chainChanged", async () => {
       try {
+        if (!hasUserInitiatedConnect) {
+          // Ignore wallet-driven chain events until user explicitly connects.
+          return;
+        }
         await ensureProvider();
         if (account) {
           signer = await provider.getSigner(account);
@@ -768,6 +769,7 @@
   rotateHeroPreview();
   updateCostDisplay();
   showEmptyState();
-  updateNetDot();
-  refreshMintInfo();
+  // Keep initial load fully read-only and non-interactive with wallet.
+  // No wallet RPC calls until user presses Connect/Switch.
+  hideLoader();
 })();
