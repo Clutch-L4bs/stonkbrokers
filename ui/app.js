@@ -507,11 +507,9 @@
     const text =
       `Just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain Testnet.\n` +
       `Funded token: $${selectedNft.tokenLabel}.\n` +
-      `Future: burn testnet brokers for mainnet brokers + 5% royalties planned for monthly stock-token wallet dividends.\n` +
       `Mint yours: https://stonkbrokers.cash\n` +
       `Powered by Clutch Markets (@clutchmarkets)\n` +
-      `#StonkBrokers #RobinhoodChain\n` +
-      `⚠️ Testnet assets have no real-world value.`;
+      `#StonkBrokers #RobinhoodChain`;
     const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     // Download the image automatically so attaching it in X is faster.
     downloadSelectedNftImage(true);
