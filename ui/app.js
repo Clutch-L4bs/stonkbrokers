@@ -147,6 +147,24 @@
     return hex ? Number.parseInt(hex, 16) : undefined;
   }
 
+  function faucetUrlSafe() {
+    const url = cfg.faucetUrl || "https://faucet.testnet.chain.robinhood.com";
+    return url.startsWith("http://") || url.startsWith("https://")
+      ? url
+      : "https://faucet.testnet.chain.robinhood.com";
+  }
+
+  async function getWalletEthBalance() {
+    if (!provider || !account) return 0n;
+    return provider.getBalance(account);
+  }
+
+  function showFaucetPrompt(targetEl, reason) {
+    const url = faucetUrlSafe();
+    const message = `${reason} <a href="${url}" target="_blank" rel="noreferrer">Get testnet ETH from faucet</a>.`;
+    setStatus(targetEl, message, "error", true);
+  }
+
   /* ── Supply bar ──────────────────────────────────── */
   function updateSupplyBar(minted, max) {
     const m = Number(minted);
@@ -295,6 +313,10 @@
     walletLabel.classList.add("connected");
     setStatus(connectStatus, "");
     await refreshMintInfo();
+    const ethBalance = await getWalletEthBalance();
+    if (ethBalance === 0n) {
+      showFaucetPrompt(connectStatus, "No Robinhood testnet ETH detected in your wallet.");
+    }
     updateNetDot();
   }
 
@@ -435,6 +457,15 @@
       }
       const price = cachedPrice || (await nftRead.MINT_PRICE());
       const value = price * BigInt(quantity);
+      const ethBalance = await getWalletEthBalance();
+      if (ethBalance < value) {
+        showFaucetPrompt(
+          mintStatus,
+          `Insufficient Robinhood testnet ETH for this mint (${ethers.formatEther(value)} ETH required).`
+        );
+        window.open(faucetUrlSafe(), "_blank", "noopener,noreferrer");
+        return;
+      }
       setStatus(mintStatus, `<span class="spinner"></span> Sending transaction...`, "pending", true);
       const tx = await writable.mint(quantity, { value });
       setStatus(mintStatus, `<span class="spinner"></span> Confirming: ${short(tx.hash)}`, "pending", true);
