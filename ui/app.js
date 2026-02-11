@@ -67,7 +67,7 @@
   let isMinting = false;
   let cachedPrice = null;
   let hasUserInitiatedConnect = false;
-  const UI_MAX_MINTS_PER_WALLET = 5;
+  const UI_MAX_MINTS_PER_WALLET = 1;
   let walletRemainingMints = UI_MAX_MINTS_PER_WALLET;
   let selectedNft = null;
   const erc20MetaAbi = [
