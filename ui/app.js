@@ -21,7 +21,6 @@
 
   /* ── DOM refs ────────────────────────────────────── */
   const connectBtn = document.getElementById("connectBtn");
-  const thirdwebBtn = document.getElementById("thirdwebBtn");
   const switchBtn = document.getElementById("switchBtn");
   const mintBtn = document.getElementById("mintBtn");
   const refreshBtn = document.getElementById("refreshBtn");
@@ -64,6 +63,7 @@
   let walletEventsBound = false;
   let isMinting = false;
   let cachedPrice = null;
+  let hasUserInitiatedConnect = false;
   const UI_MAX_MINTS_PER_WALLET = 5;
   let walletRemainingMints = UI_MAX_MINTS_PER_WALLET;
   let selectedNft = null;
@@ -276,6 +276,7 @@
 
   /* ── Wallet ──────────────────────────────────────── */
   async function connectWallet() {
+    hasUserInitiatedConnect = true;
     await ensureProvider();
     await provider.send("eth_requestAccounts", []);
     signer = await provider.getSigner();
@@ -294,6 +295,10 @@
 
     window.ethereum.on("accountsChanged", async (accounts) => {
       try {
+        if (!hasUserInitiatedConnect) {
+          // Do not auto-connect from wallet background events; connect only on user action.
+          return;
+        }
         if (!accounts || accounts.length === 0) {
           account = undefined;
           signer = undefined;
@@ -653,30 +658,6 @@
       setStatus(connectStatus, err.message || err, "error");
     } finally {
       setButtonLoading(connectBtn, false);
-    }
-  });
-
-  thirdwebBtn.addEventListener("click", async () => {
-    try {
-      if (!window.ethereum) {
-        const base = cfg.thirdwebWalletUrl || "https://thirdweb.com/wallets";
-        const params = new URLSearchParams();
-        if (cfg.thirdwebClientId) params.set("clientId", cfg.thirdwebClientId);
-        const chainId = expectedChainDecimal();
-        if (chainId) params.set("chainId", String(chainId));
-        const url = params.toString() ? `${base}?${params.toString()}` : base;
-        window.open(url, "_blank", "noopener,noreferrer");
-        setStatus(connectStatus, "Open Thirdweb wallet, then click Connect Wallet.", "pending");
-        return;
-      }
-      setButtonLoading(thirdwebBtn, true, "Connecting...");
-      await connectOnRobinhoodNetwork();
-      await loadOwnedTokens();
-      setStatus(connectStatus, "Connected via EVM wallet.", "ok");
-    } catch (err) {
-      setStatus(connectStatus, err.message || err, "error");
-    } finally {
-      setButtonLoading(thirdwebBtn, false);
     }
   });
 
