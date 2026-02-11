@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stonk Brokers — Mint on Robinhood Chain</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+      @font-face {
+        font-family: "Intec";
+        src: local("Inter"), local("Inter Regular");
+        font-display: swap;
+      }
+
+      :root {
+        --bg: #02070d;
+        --panel: #060d15;
+        --panel-2: #08111c;
+        --panel-border: #223345;
+        --panel-hover: #0c1624;
+        --muted: #8ea3b7;
+        --text: #dce7f4;
+        --amber: #ff9f1a;
+        --amber-soft: #ffcd75;
+        --green: #42ff96;
+        --cyan: #63d7ff;
+        --danger: #ff6f6f;
+        --gold: #f5c842;
+        --terminal-line: #1f2e40;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+
+      body {
+        min-height: 100vh;
+        font-family: "Intec", "Inter", "Segoe UI", "Roboto", Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow-x: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ── Fade-in animation ─────────────────────────── */
+      .fade-up {
+        opacity: 0;
+        transform: translateY(18px);
+        animation: fadeUp 0.5s ease forwards;
+      }
+      .fade-up:nth-child(1) { animation-delay: 0s; }
+      .fade-up:nth-child(2) { animation-delay: 0.07s; }
+      .fade-up:nth-child(3) { animation-delay: 0.14s; }
+      .fade-up:nth-child(4) { animation-delay: 0.21s; }
+      .fade-up:nth-child(5) { animation-delay: 0.28s; }
+      .fade-up:nth-child(6) { animation-delay: 0.35s; }
+      @keyframes fadeUp {
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ── Background collage ────────────────────────── */
+      .bg-collage {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        opacity: 0.15;
+        pointer-events: none;
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 5px;
+        padding: 5px;
+      }
+      .bg-collage img {
+        width: 100%;
+        aspect-ratio: 1/1;
+        object-fit: cover;
+        border-radius: 3px;
+        filter: saturate(0.7) contrast(0.85) brightness(0.9);
+        transform: rotate(var(--r));
+      }
+      .bg-fade {
+        position: fixed;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+          radial-gradient(ellipse 90% 50% at 50% 0%, rgba(2,3,5,0.15) 0%, rgba(2,3,5,0.95) 100%),
+          linear-gradient(180deg, rgba(2,3,5,0.1) 0%, rgba(2,3,5,0.7) 40%, rgba(2,3,5,1) 100%);
+      }
+
+      /* ── Container ─────────────────────────────────── */
+      .container {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        padding: 20px 20px 28px;
+        position: relative;
+        z-index: 2;
+      }
+
+      /* ── Top bar ───────────────────────────────────── */
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+      .brand-group { display: flex; align-items: center; gap: 12px; }
+      .brand-logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: 2px solid rgba(255,159,26,0.3);
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .brand-logo img {
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        object-fit: cover;
+      }
+      .brand {
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--amber);
+        text-shadow: 0 0 24px rgba(255,159,26,0.2);
+      }
+      .brand-sub {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-top: 1px;
+      }
+      .topbar-right {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .net-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #3a4555;
+        display: inline-block;
+        transition: background 0.3s;
+      }
+      .net-dot.ok { background: var(--green); box-shadow: 0 0 6px rgba(57,255,136,0.4); }
+      .net-dot.wrong { background: var(--danger); box-shadow: 0 0 6px rgba(255,107,107,0.4); }
+      #walletLabel {
+        font-family: "Consolas","Menlo",monospace;
+        font-size: 12px;
+        color: var(--muted);
+        padding: 6px 10px;
+        border: 1px solid var(--panel-border);
+        border-radius: 6px;
+        background: rgba(9,13,18,0.7);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #walletLabel.connected {
+        color: var(--green);
+        border-color: rgba(57,255,136,0.2);
+        background: rgba(57,255,136,0.04);
+      }
+
+      /* ── Hero ───────────────────────────────────────── */
+      .hero {
+        background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+        border: 1px solid var(--panel-border);
+        border-radius: 2px;
+        padding: 32px 28px 28px;
+        margin-bottom: 16px;
+        box-shadow: inset 0 0 0 1px #0f1d2c, 0 10px 28px rgba(0, 0, 0, 0.5);
+        display: flex;
+        gap: 28px;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: 2px;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(255,159,26,0.15) 0%, transparent 40%, rgba(85,216,255,0.1) 100%);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+      }
+      .hero-text { flex: 1; min-width: 0; }
+      .hero-text h1 {
+        font-size: 34px;
+        font-weight: 900;
+        line-height: 1.12;
+        letter-spacing: -0.01em;
+        margin-bottom: 12px;
+      }
+      .hero-text h1 span { color: var(--amber); }
+      .hero-text .tagline {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+        max-width: 520px;
+      }
+      .hero-preview {
+        flex-shrink: 0;
+        width: 150px;
+        height: 150px;
+        border-radius: 14px;
+        border: 2px solid rgba(255,159,26,0.2);
+        overflow: hidden;
+        box-shadow: 0 12px 40px rgba(255,159,26,0.1), 0 0 80px rgba(255,159,26,0.05);
+        animation: float 4s ease-in-out infinite;
+        background: #080c11;
+      }
+      .hero-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        image-rendering: pixelated;
+        transition: opacity 0.3s ease;
+      }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+
+      /* ── Supply bar ─────────────────────────────────── */
+      .supply-bar-wrap {
+        margin-top: 20px;
+        max-width: 440px;
+      }
+      .supply-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .supply-label .count { color: var(--text); }
+      .supply-track {
+        width: 100%;
+        height: 8px;
+        background: #111820;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid #1a222b;
+      }
+      .supply-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--amber) 0%, var(--gold) 100%);
+        border-radius: 4px;
+        transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+        width: 0%;
+        position: relative;
+      }
+      .supply-fill::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 30px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2));
+        border-radius: 4px;
+      }
+
+      /* ── Token pills ────────────────────────────────── */
+      .token-pills {
+        display: flex;
+        gap: 6px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .token-pills .label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-right: 4px;
+      }
+      .token-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-family: "Consolas","Menlo",monospace;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        border: 1px solid;
+      }
+      .token-pill.tsla  { color: #e44d4d; border-color: rgba(228,77,77,0.25); background: rgba(228,77,77,0.08); }
+      .token-pill.amzn  { color: #ff9900; border-color: rgba(255,153,0,0.25); background: rgba(255,153,0,0.08); }
+      .token-pill.pltr  { color: #2dd4bf; border-color: rgba(45,212,191,0.25); background: rgba(45,212,191,0.08); }
+      .token-pill.nflx  { color: #e50914; border-color: rgba(229,9,20,0.25); background: rgba(229,9,20,0.08); }
+      .token-pill.amd   { color: #00c853; border-color: rgba(0,200,83,0.25); background: rgba(0,200,83,0.08); }
+      .token-pill .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      /* ── Ticker data strip ──────────────────────────── */
+      .ticker-strip {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        font-family: "Consolas","Menlo",monospace;
+        font-size: 12px;
+        color: var(--green);
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .ticker-strip .sep { color: #1f2a36; }
+      .ticker-strip .label { color: #5a6a7e; font-weight: 600; }
+
+      /* ── How it works ───────────────────────────────── */
+      .how-it-works {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .step {
+        background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+        border: 1px solid var(--panel-border);
+        border-radius: 2px;
+        padding: 18px 16px;
+        text-align: center;
+        transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        box-shadow: inset 0 0 0 1px #0f1d2c;
+      }
+      .step:hover {
+        border-color: var(--cyan);
+        box-shadow: inset 0 0 0 1px #1b3249;
+        transform: translateY(-2px);
+      }
+      .step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--amber), var(--gold));
+        color: #1a1000;
+        font-weight: 900;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 10px;
+      }
+      .step-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+      .step-desc {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      /* ── Collection info box ────────────────────────── */
+      .info-box {
+        background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+        border: 1px solid var(--panel-border);
+        border-radius: 2px;
+        box-shadow: inset 0 0 0 1px #0f1d2c;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .info-box h3 {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--amber-soft);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .info-box p {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      /* ── Cards ──────────────────────────────────────── */
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-bottom: 14px;
+      }
+      @media (min-width: 860px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+      }
+      .card {
+        background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+        border: 1px solid var(--panel-border);
+        border-radius: 2px;
+        padding: 20px 20px 18px;
+        transition: border-color 0.25s, box-shadow 0.25s;
+        box-shadow: inset 0 0 0 1px #0f1d2c;
+      }
+      .card:hover {
+        border-color: var(--cyan);
+        box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+      }
+      .card h3 {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--amber-soft);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .card h3 .icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 5px;
+        background: rgba(255,159,26,0.12);
+        font-size: 11px;
+        font-weight: 900;
+        color: var(--amber);
+      }
+
+      /* ── Buttons ─────────────────────────────────────── */
+      button {
+        padding: 10px 18px;
+        border-radius: 2px;
+        border: 1px solid #2a3d52;
+        background: #0f1b28;
+        color: #f4f7fc;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+      button:hover { border-color: var(--cyan); background: #132335; }
+      button:active { transform: translateY(1px); }
+      button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+      button.primary {
+        border-color: #8a5b12;
+        background: linear-gradient(180deg, #ffb64a 0%, #ff9f1a 100%);
+        color: #1b1204;
+        box-shadow: inset 0 0 0 1px rgba(255, 231, 191, 0.28);
+      }
+      button.primary:hover:not(:disabled) {
+        background: linear-gradient(180deg, #ffc168 0%, #ffa92f 100%);
+        box-shadow: inset 0 0 0 1px rgba(255, 240, 210, 0.34);
+      }
+      button.secondary {
+        color: #d4e6fa;
+        border-color: #2a4056;
+        background: #102131;
+      }
+      button.secondary:hover:not(:disabled) {
+        background: #153049;
+        border-color: var(--cyan);
+      }
+      .btn-sm { padding: 7px 12px; font-size: 12px; }
+
+      /* Mint button pulse */
+      .mint-pulse {
+        position: relative;
+      }
+      .mint-pulse::after {
+        content: "";
+        position: absolute;
+        inset: -2px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(255,159,26,0.3), rgba(245,200,66,0.3));
+        opacity: 0;
+        animation: pulse 2.5s ease-in-out infinite;
+        pointer-events: none;
+        z-index: -1;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.06); }
+      }
+
+      /* ── Quantity stepper ────────────────────────────── */
+      .qty-stepper {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid #2a4056;
+        border-radius: 2px;
+        overflow: hidden;
+        background: #0b1622;
+      }
+      .qty-stepper button {
+        width: 36px;
+        height: 38px;
+        border: none;
+        border-radius: 0;
+        background: #0e1620;
+        color: var(--muted);
+        font-size: 16px;
+        font-weight: 700;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: none;
+      }
+      .qty-stepper button:hover { background: #1b3147; color: var(--text); }
+      .qty-stepper input[type="number"] {
+        width: 48px;
+        border: none;
+        border-left: 1px solid #1a222b;
+        border-right: 1px solid #1a222b;
+        border-radius: 0;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 800;
+        background: transparent;
+        color: var(--text);
+        padding: 8px 0;
+        -moz-appearance: textfield;
+        appearance: textfield;
+      }
+      .qty-stepper input::-webkit-outer-spin-button,
+      .qty-stepper input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .qty-stepper input:focus { outline: none; }
+
+      /* ── Mint section ────────────────────────────────── */
+      .mint-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .mint-cost {
+        font-family: "Consolas","Menlo",monospace;
+        font-size: 13px;
+        color: var(--text);
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .mint-cost .highlight { color: var(--amber); font-weight: 700; }
+      .total-cost {
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(255,159,26,0.08);
+        border: 1px solid rgba(255,159,26,0.15);
+        color: var(--amber);
+        font-weight: 700;
+      }
+
+      /* ── Inputs ──────────────────────────────────────── */
+      input:focus {
+        outline: none;
+        border-color: var(--amber);
+        box-shadow: 0 0 0 2px rgba(255,159,26,0.12);
+      }
+
+      /* ── Row helpers ─────────────────────────────────── */
+      .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+      /* ── Status messages ─────────────────────────────── */
+      .status {
+        font-size: 13px;
+        margin-top: 8px;
+        min-height: 18px;
+        color: #7ba8d0;
+        transition: color 0.2s;
+      }
+      .status.error { color: var(--danger); }
+      .status.ok { color: var(--green); }
+      .status.pending { color: var(--amber-soft); }
+
+      /* ── NFT cards ──────────────────────────────────── */
+      .nft-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      @media (min-width: 700px) {
+        .nft-grid { grid-template-columns: 1fr 1fr; }
+      }
+      .nft-card {
+        border: 1px solid #24384b;
+        border-radius: 2px;
+        padding: 14px;
+        background: rgba(8, 15, 24, 0.88);
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        transition: border-color 0.2s, background 0.2s;
+        box-shadow: inset 0 0 0 1px #0f1d2c;
+        cursor: pointer;
+      }
+      .nft-card:hover {
+        border-color: var(--cyan);
+        background: rgba(12, 23, 36, 0.92);
+      }
+      .nft-card .nft-thumb {
+        width: 68px;
+        height: 68px;
+        border-radius: 8px;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 1px solid #1a222b;
+        background: #080c11;
+      }
+      .nft-card .nft-thumb img {
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        object-fit: cover;
+      }
+      .nft-card .nft-details { flex: 1; min-width: 0; }
+      .nft-card .nft-id {
+        font-weight: 800;
+        font-size: 15px;
+        color: var(--text);
+        margin-bottom: 4px;
+      }
+      .nft-card .nft-meta {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.7;
+        word-break: break-all;
+      }
+      .nft-card .nft-meta code {
+        color: var(--cyan);
+        font-size: 11px;
+      }
+      .nft-card .nft-meta .token-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+      }
+      .nft-card .nft-meta .token-badge.tsla  { color: #e44d4d; background: rgba(228,77,77,0.1); border: 1px solid rgba(228,77,77,0.2); }
+      .nft-card .nft-meta .token-badge.amzn  { color: #ff9900; background: rgba(255,153,0,0.1); border: 1px solid rgba(255,153,0,0.2); }
+      .nft-card .nft-meta .token-badge.pltr  { color: #2dd4bf; background: rgba(45,212,191,0.1); border: 1px solid rgba(45,212,191,0.2); }
+      .nft-card .nft-meta .token-badge.nflx  { color: #e50914; background: rgba(229,9,20,0.1); border: 1px solid rgba(229,9,20,0.2); }
+      .nft-card .nft-meta .token-badge.amd   { color: #00c853; background: rgba(0,200,83,0.1); border: 1px solid rgba(0,200,83,0.2); }
+      .nft-card .nft-meta .token-badge.unknown { color: var(--cyan); background: rgba(85,216,255,0.08); border: 1px solid rgba(85,216,255,0.15); }
+      .nft-card .nft-meta .balance-val {
+        color: var(--green);
+        font-weight: 700;
+        font-family: "Consolas","Menlo",monospace;
+      }
+
+      /* ── Empty state ────────────────────────────────── */
+      .empty-state {
+        text-align: center;
+        padding: 24px 16px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .empty-state .empty-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+        opacity: 0.5;
+      }
+
+      /* ── NFT modal ───────────────────────────────────── */
+      .nft-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: rgba(1, 4, 8, 0.82);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .nft-modal-backdrop.open {
+        display: flex;
+      }
+      .nft-modal {
+        width: min(860px, 100%);
+        background: linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+        border: 1px solid var(--panel-border);
+        box-shadow: inset 0 0 0 1px #0f1d2c, 0 18px 50px rgba(0, 0, 0, 0.6);
+        border-radius: 2px;
+        padding: 16px;
+      }
+      .nft-modal-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        gap: 10px;
+      }
+      .nft-modal-title {
+        font-size: 14px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--amber-soft);
+        font-weight: 700;
+      }
+      .nft-modal-grid {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) minmax(220px, 320px);
+        gap: 14px;
+      }
+      .nft-modal-art {
+        background: #08111b;
+        border: 1px solid var(--terminal-line);
+        padding: 8px;
+        border-radius: 2px;
+      }
+      .nft-modal-art img {
+        width: 100%;
+        max-height: 72vh;
+        object-fit: contain;
+        image-rendering: pixelated;
+        display: block;
+      }
+      .nft-modal-meta {
+        border: 1px solid var(--terminal-line);
+        padding: 10px;
+        border-radius: 2px;
+        background: rgba(7, 13, 20, 0.92);
+      }
+      .nft-modal-meta .rowline {
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--muted);
+        border-bottom: 1px solid #172433;
+        padding: 3px 0;
+        word-break: break-word;
+      }
+      .nft-modal-meta .rowline:last-of-type {
+        border-bottom: none;
+      }
+      .nft-modal-meta .val {
+        color: var(--text);
+        font-family: "Consolas", "Menlo", monospace;
+      }
+      .nft-modal-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .nft-send-box {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #172433;
+      }
+      .nft-send-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--amber-soft);
+        margin-bottom: 6px;
+        font-weight: 700;
+      }
+      .nft-send-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .nft-send-input {
+        border: 1px solid #2a4056;
+        background: #0b1622;
+        color: var(--text);
+        border-radius: 2px;
+        padding: 8px 9px;
+        font-size: 12px;
+      }
+      #nftModalRecipient {
+        flex: 1;
+        min-width: 180px;
+      }
+      #nftModalAmount {
+        width: 120px;
+      }
+      .nft-send-status {
+        font-size: 12px;
+        min-height: 16px;
+      }
+      .nft-send-status.error { color: var(--danger); }
+      .nft-send-status.ok { color: var(--green); }
+      .nft-send-status.pending { color: var(--amber-soft); }
+
+      /* ── Links ───────────────────────────────────────── */
+      a { color: var(--cyan); text-decoration: none; transition: color 0.15s; }
+      a:hover { color: #80e5ff; text-decoration: underline; }
+
+      /* ── Connection helpers ──────────────────────────── */
+      .connect-row { margin-top: 10px; }
+      .connect-links {
+        margin-top: 12px;
+        font-size: 12px;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .connect-links a { color: #5a7a98; }
+      .connect-links a:hover { color: var(--cyan); }
+
+      /* ── Contract info ───────────────────────────────── */
+      .contract-info {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--terminal-line);
+        font-size: 11px;
+        color: #3e4e60;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .contract-info code { color: #4a6a88; font-size: 11px; }
+
+      /* ── Footer ──────────────────────────────────────── */
+      footer {
+        margin-top: auto;
+        border-top: 1px solid var(--terminal-line);
+        padding: 18px 20px;
+        text-align: center;
+        color: #3e4e60;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        position: relative;
+        z-index: 2;
+      }
+      footer a { color: #4a6a88; }
+
+      /* ── Spinner ─────────────────────────────────────── */
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255,255,255,0.1);
+        border-top-color: var(--amber);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ── Responsive ──────────────────────────────────── */
+      @media (max-width: 768px) {
+        .how-it-works { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 640px) {
+        .hero { flex-direction: column; text-align: center; padding: 22px 18px; }
+        .hero-preview { width: 110px; height: 110px; }
+        .hero-text h1 { font-size: 26px; }
+        .tagline { margin: 0 auto; }
+        .supply-bar-wrap { max-width: 100%; margin-left: auto; margin-right: auto; }
+        .token-pills { justify-content: center; }
+        .ticker-strip { justify-content: center; }
+        .topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+        .topbar-right { justify-content: space-between; }
+        .bg-collage { grid-template-columns: repeat(5, 1fr); }
+        .how-it-works { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Background NFT collage -->
+    <div class="bg-collage" id="bgCollage" aria-hidden="true"></div>
+    <div class="bg-fade" aria-hidden="true"></div>
+
+    <div class="container">
+      <!-- Top bar -->
+      <div class="topbar fade-up">
+        <div class="brand-group">
+          <div class="brand-logo">
+            <img src="/previews/stonk-broker-7.svg" alt="" />
+          </div>
+          <div>
+            <div class="brand">Stonk Brokers</div>
+            <div class="brand-sub">On-Chain NFT Collection</div>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <span id="walletLabel"><span class="net-dot" id="netDot"></span> Not connected</span>
+          <button id="connectBtn" class="primary">Connect Wallet</button>
+        </div>
+      </div>
+
+      <!-- Hero -->
+      <section class="hero fade-up">
+        <div class="hero-text">
+          <h1>444 Pixel <span>Stock Brokers</span></h1>
+          <p class="tagline">Each NFT is minted with its own ERC-6551 token-bound wallet, funded with a random Robinhood stock token. Collect your broker and claim the tokens inside.</p>
+
+          <!-- Supply progress bar -->
+          <div class="supply-bar-wrap">
+            <div class="supply-label">
+              <span>Minted</span>
+              <span class="count" id="supplyText">0 / 444</span>
+            </div>
+            <div class="supply-track">
+              <div class="supply-fill" id="supplyFill"></div>
+            </div>
+          </div>
+
+          <!-- Token pills -->
+          <div class="token-pills">
+            <span class="label">Tokens</span>
+            <span class="token-pill tsla"><span class="dot"></span>TSLA</span>
+            <span class="token-pill amzn"><span class="dot"></span>AMZN</span>
+            <span class="token-pill pltr"><span class="dot"></span>PLTR</span>
+            <span class="token-pill nflx"><span class="dot"></span>NFLX</span>
+            <span class="token-pill amd"><span class="dot"></span>AMD</span>
+          </div>
+
+          <!-- Ticker data -->
+          <div class="ticker-strip">
+            <span class="label">PRICE</span> 0.01 ETH
+            <span class="sep">/</span>
+            <span class="label">SUPPLY</span> 444
+            <span class="sep">/</span>
+            <span class="label">CHAIN</span> Robinhood Testnet
+          </div>
+        </div>
+        <div class="hero-preview">
+          <img src="/previews/stonk-broker-7.svg" alt="Stonk Broker #7" id="heroPreviewImg" />
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <div class="how-it-works fade-up">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-title">Connect Wallet</div>
+          <div class="step-desc">Connect via MetaMask or Thirdweb on Robinhood Chain Testnet.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-title">Mint a Broker</div>
+          <div class="step-desc">Pay 0.01 ETH per NFT. Each mint creates a unique pixel broker.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-title">Claim Tokens</div>
+          <div class="step-desc">Your broker's wallet holds real stock tokens. Transfer them anytime.</div>
+        </div>
+      </div>
+
+      <section class="info-box fade-up">
+        <h3>Collection Information</h3>
+        <p>
+          Stonk Brokers is a fully on-chain NFT collection. Each NFT holds an allocation of stock tokens in its token-bound wallet.
+          At mainnet launch, holders will be able to burn their testnet Stonk Brokers to claim Robinhood mainnet Stonk Brokers.
+          The collection includes a 5% royalty. These royalties are intended to be used to purchase stock tokens on Robinhood Chain
+          and distribute them to Stonk Broker wallets as a monthly dividend.
+        </p>
+      </section>
+
+      <!-- Mint + Connection grid -->
+      <div class="grid fade-up">
+        <!-- Mint card -->
+        <div class="card">
+          <h3><span class="icon">$</span> Mint</h3>
+          <div class="mint-row">
+            <div class="qty-stepper">
+              <button type="button" id="qtyMinus">-</button>
+              <input id="qty" type="number" min="1" max="10" value="1" />
+              <button type="button" id="qtyPlus">+</button>
+            </div>
+            <button id="mintBtn" class="primary mint-pulse">Mint Now</button>
+          </div>
+          <div class="mint-cost" id="mintInfo"></div>
+          <div id="mintStatus" class="status"></div>
+        </div>
+
+        <!-- Connection card -->
+        <div class="card">
+          <h3><span class="icon">~</span> Network</h3>
+          <div class="row connect-row">
+            <button id="switchBtn" class="secondary btn-sm">Switch to Robinhood Testnet</button>
+            <button id="thirdwebBtn" class="secondary btn-sm">Thirdweb Wallet</button>
+          </div>
+          <div class="connect-links">
+            <a id="faucetLink" href="#" target="_blank" rel="noreferrer">Get testnet ETH</a>
+            <a id="thirdwebLink" href="#" target="_blank" rel="noreferrer">Get Thirdweb wallet</a>
+          </div>
+          <div id="connectStatus" class="status"></div>
+        </div>
+      </div>
+
+      <!-- My NFTs -->
+      <div class="card fade-up">
+        <h3><span class="icon">#</span> My Stonk Brokers</h3>
+        <div class="row" style="margin-bottom: 6px">
+          <button id="refreshBtn" class="secondary btn-sm">Refresh</button>
+        </div>
+        <div id="tokenList"></div>
+      </div>
+
+      <!-- Contract info -->
+      <div class="contract-info fade-up">
+        <span>Contract:</span>
+        <a id="contractLink" href="#" target="_blank" rel="noreferrer"><code id="contractAddr">&mdash;</code></a>
+      </div>
+    </div>
+
+    <footer>
+      Stonk Brokers &mdash; 100% on-chain on <a href="https://docs.robinhood.com/chain/" target="_blank" rel="noreferrer">Robinhood Chain Testnet</a>
+    </footer>
+
+    <div class="nft-modal-backdrop" id="nftModalBackdrop" aria-hidden="true">
+      <div class="nft-modal" role="dialog" aria-modal="true" aria-labelledby="nftModalTitle">
+        <div class="nft-modal-top">
+          <div class="nft-modal-title" id="nftModalTitle">Stonk Broker Preview</div>
+          <button id="nftModalClose" class="secondary btn-sm" type="button">Close</button>
+        </div>
+        <div class="nft-modal-grid">
+          <div class="nft-modal-art">
+            <img id="nftModalImage" src="" alt="Selected Stonk Broker preview" />
+          </div>
+          <div class="nft-modal-meta">
+            <div class="rowline">Token ID: <span class="val" id="nftModalTokenId">-</span></div>
+            <div class="rowline">Funded Token: <span class="val" id="nftModalFundedToken">-</span></div>
+            <div class="rowline">Wallet Balance: <span class="val" id="nftModalBalance">-</span></div>
+            <div class="rowline">Wallet Address: <span class="val" id="nftModalWallet">-</span></div>
+            <div class="nft-modal-actions">
+              <button id="nftModalShareX" class="primary btn-sm" type="button">Share on X</button>
+              <a id="nftModalWalletLink" href="#" target="_blank" rel="noreferrer">View wallet on explorer</a>
+            </div>
+            <div class="nft-send-box">
+              <div class="nft-send-title">Send Wallet Tokens</div>
+              <div class="nft-send-row">
+                <input id="nftModalRecipient" class="nft-send-input" type="text" placeholder="Recipient 0x..." />
+                <input id="nftModalAmount" class="nft-send-input" type="number" min="0" step="0.0001" placeholder="Amount" />
+                <button id="nftModalSend" class="secondary btn-sm" type="button">Send Tokens</button>
+              </div>
+              <div id="nftModalSendStatus" class="nft-send-status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.2/dist/ethers.umd.min.js"></script>
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
