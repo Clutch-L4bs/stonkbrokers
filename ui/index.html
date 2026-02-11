@@ -778,6 +778,12 @@
         margin-top: 10px;
         flex-wrap: wrap;
       }
+      .nft-share-hint {
+        margin-top: 6px;
+        font-size: 11px;
+        color: var(--muted);
+        min-height: 14px;
+      }
       .nft-send-box {
         margin-top: 10px;
         padding-top: 10px;
@@ -1039,7 +1045,11 @@
     </div>
 
     <footer>
-      Stonk Brokers &mdash; 100% on-chain on <a href="https://docs.robinhood.com/chain/" target="_blank" rel="noreferrer">Robinhood Chain Testnet</a>
+      Powered by <a href="https://stonkbrokers.cash" target="_blank" rel="noreferrer">Clutch Labs</a>
+      &middot;
+      <a href="https://x.com/ClutchMarkets" target="_blank" rel="noreferrer">X Account</a>
+      &middot;
+      <a href="https://stonkbrokers.cash" target="_blank" rel="noreferrer">stonkbrokers.cash</a>
     </footer>
 
     <div class="nft-modal-backdrop" id="nftModalBackdrop" aria-hidden="true">
@@ -1059,8 +1069,11 @@
             <div class="rowline">Wallet Address: <span class="val" id="nftModalWallet">-</span></div>
             <div class="nft-modal-actions">
               <button id="nftModalShareX" class="primary btn-sm" type="button">Share on X</button>
+              <button id="nftModalCopyImage" class="secondary btn-sm" type="button">Copy Image Link</button>
+              <button id="nftModalDownloadImage" class="secondary btn-sm" type="button">Download SVG</button>
               <a id="nftModalWalletLink" href="#" target="_blank" rel="noreferrer">View wallet on explorer</a>
             </div>
+            <div id="nftModalShareHint" class="nft-share-hint"></div>
             <div class="nft-send-box">
               <div class="nft-send-title">Send Wallet Tokens</div>
               <div class="nft-send-row">

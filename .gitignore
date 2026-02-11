@@ -1,3 +1,15 @@
+.env
+.env.*
+!.env.example
+
+ui/config.js
+
+node_modules/
+artifacts/
+cache/
+coverage/
+
+previews/
 node_modules
 .env
 artifacts

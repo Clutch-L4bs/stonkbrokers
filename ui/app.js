@@ -49,7 +49,10 @@
   const nftModalBalance = document.getElementById("nftModalBalance");
   const nftModalWallet = document.getElementById("nftModalWallet");
   const nftModalShareX = document.getElementById("nftModalShareX");
+  const nftModalCopyImage = document.getElementById("nftModalCopyImage");
+  const nftModalDownloadImage = document.getElementById("nftModalDownloadImage");
   const nftModalWalletLink = document.getElementById("nftModalWalletLink");
+  const nftModalShareHint = document.getElementById("nftModalShareHint");
   const nftModalRecipient = document.getElementById("nftModalRecipient");
   const nftModalAmount = document.getElementById("nftModalAmount");
   const nftModalSend = document.getElementById("nftModalSend");
@@ -97,13 +100,17 @@
       .replaceAll("'", "&#39;");
   }
 
-  function setStatus(el, text, type) {
+  function setStatus(el, text, type, allowHtml = false) {
     if (!el) return;
     el.className = "status";
     if (type === "error") el.classList.add("error");
     else if (type === "ok") el.classList.add("ok");
     else if (type === "pending") el.classList.add("pending");
-    el.innerHTML = text || "";
+    if (allowHtml) {
+      el.innerHTML = text || "";
+    } else {
+      el.textContent = text || "";
+    }
   }
 
   function setModalSendStatus(text, type) {
@@ -113,6 +120,11 @@
     else if (type === "ok") nftModalSendStatus.classList.add("ok");
     else if (type === "pending") nftModalSendStatus.classList.add("pending");
     nftModalSendStatus.textContent = text || "";
+  }
+
+  function setShareHint(text) {
+    if (!nftModalShareHint) return;
+    nftModalShareHint.textContent = text || "";
   }
 
   function setButtonLoading(btn, loading, label) {
@@ -408,9 +420,9 @@
       }
       const price = cachedPrice || (await nftRead.MINT_PRICE());
       const value = price * BigInt(quantity);
-      setStatus(mintStatus, `<span class="spinner"></span> Sending transaction...`, "pending");
+      setStatus(mintStatus, `<span class="spinner"></span> Sending transaction...`, "pending", true);
       const tx = await writable.mint(quantity, { value });
-      setStatus(mintStatus, `<span class="spinner"></span> Confirming: ${short(tx.hash)}`, "pending");
+      setStatus(mintStatus, `<span class="spinner"></span> Confirming: ${short(tx.hash)}`, "pending", true);
       await tx.wait();
       setStatus(mintStatus, `Mint confirmed! Tx: ${short(tx.hash)}`, "ok");
       await refreshMintInfo();
@@ -447,6 +459,7 @@
     if (nftModalRecipient) nftModalRecipient.value = "";
     if (nftModalAmount) nftModalAmount.value = "";
     setModalSendStatus("");
+    setShareHint("");
 
     const explorerBase = (cfg.blockExplorerUrl || "").replace(/\/$/, "");
     const walletUrl = explorerBase ? `${explorerBase}/address/${nft.wallet}` : "#";
@@ -466,19 +479,52 @@
     nftModalBackdrop.setAttribute("aria-hidden", "true");
     selectedNft = null;
     setModalSendStatus("");
+    setShareHint("");
+  }
+
+  function nftImageUrl(tokenId) {
+    const base = window.location.origin || "";
+    return `${base}/previews/stonk-broker-${tokenId}.svg`;
   }
 
   function shareSelectedNftOnX() {
     if (!selectedNft) return;
     const explorerBase = (cfg.blockExplorerUrl || "").replace(/\/$/, "");
-    const contractUrl = explorerBase ? `${explorerBase}/address/${cfg.nftAddress}` : "";
+    const imageUrl = nftImageUrl(selectedNft.tokenId);
+    const contractUrl = explorerBase ? `${explorerBase}/address/${cfg.nftAddress}` : "https://stonkbrokers.cash";
     const text =
-      `I just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain Testnet. ` +
-      `Wallet funded with ${selectedNft.tokenLabel}. #StonkBrokers #RobinhoodChain`;
+      `Just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain Testnet.\n` +
+      `Wallet funded with ${selectedNft.tokenLabel}.` +
+      `\nSee my broker image: ${imageUrl}\n` +
+      `#StonkBrokers #RobinhoodChain`;
     const tweetUrl =
       `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}` +
       (contractUrl ? `&url=${encodeURIComponent(contractUrl)}` : "");
     window.open(tweetUrl, "_blank", "noopener,noreferrer");
+    setShareHint("Tip: upload/download the SVG or use Copy Image Link for your X post.");
+  }
+
+  async function copySelectedNftImageLink() {
+    if (!selectedNft) return;
+    const url = nftImageUrl(selectedNft.tokenId);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareHint("Image link copied. Paste it in your X post.");
+    } catch (_error) {
+      setShareHint(`Copy failed. Use this link: ${url}`);
+    }
+  }
+
+  function downloadSelectedNftImage() {
+    if (!selectedNft) return;
+    const url = nftImageUrl(selectedNft.tokenId);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `stonk-broker-${selectedNft.tokenId}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setShareHint("Downloaded SVG. You can upload it directly in X compose.");
   }
 
   async function refreshSelectedNftModalBalance() {
@@ -699,6 +745,12 @@
   }
   if (nftModalShareX) {
     nftModalShareX.addEventListener("click", shareSelectedNftOnX);
+  }
+  if (nftModalCopyImage) {
+    nftModalCopyImage.addEventListener("click", copySelectedNftImageLink);
+  }
+  if (nftModalDownloadImage) {
+    nftModalDownloadImage.addEventListener("click", downloadSelectedNftImage);
   }
   if (nftModalSend) {
     nftModalSend.addEventListener("click", sendSelectedNftTokens);
