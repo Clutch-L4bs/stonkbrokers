@@ -1,12 +1,15 @@
+require("dotenv").config();
+
+const stockTokens = (process.env.STOCK_TOKEN_ADDRESSES || "")
+  .split(",")
+  .map((addr) => addr.trim())
+  .filter(Boolean);
+
 module.exports = [
-  [
-    "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E",
-    "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02",
-    "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0",
-    "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93",
-    "0x71178BAc73cBeb415514eB542a8995b82669778d",
-  ],
-  "0x0aC0A520880e49A529DEBb8F0B2F6b7dc3eeae79",
-  "0x686985dDbCf8055b3FEe67bF1E7489CE6d4aF764",
-  "0xF58F19Be7c3ab385500862DC2391f42b6596f978",
+  stockTokens,
+  Number(process.env.CONTINUATION_START_TOKEN_ID || "445"),
+  Number(process.env.EXPANDED_END_TOKEN_ID || "4444"),
+  process.env.ERC6551_REGISTRY_ADDRESS,
+  process.env.ERC6551_ACCOUNT_IMPLEMENTATION,
+  process.env.DEPLOYER_ADDRESS || "0xF58F19Be7c3ab385500862DC2391f42b6596f978",
 ];

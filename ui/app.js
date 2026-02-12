@@ -125,13 +125,14 @@
   let nftRead;
   let nftWrite;
   let originalRead;
+  let legacyExpandedRead;
   let marketRead;
   let marketWrite;
   let walletEventsBound = false;
   let isMinting = false;
   let cachedPrice = null;
   let hasUserInitiatedConnect = false;
-  const UI_MAX_MINTS_PER_WALLET = 1;
+  const UI_MAX_MINTS_PER_WALLET = 2;
   let walletRemainingMints = UI_MAX_MINTS_PER_WALLET;
   let selectedNft = null;
   let loadedListing = null;
@@ -216,6 +217,14 @@
     return cfg.expandedNftAddress || cfg.nftAddress;
   }
 
+  function legacyExpandedAddress() {
+    return cfg.legacyExpandedNftAddress || "";
+  }
+
+  function legacyExpandedLastTokenId() {
+    return Number(cfg.legacyExpandedLastTokenId || 0);
+  }
+
   function originalAddress() {
     return cfg.originalNftAddress || "";
   }
@@ -224,8 +233,26 @@
     return cfg.marketplaceAddress || "";
   }
 
-  function collectionAddressByKey(key) {
-    return key === "original" ? originalAddress() : expandedMintAddress();
+  function collectionAddressByKey(key, tokenId = 0) {
+    return key === "original" ? originalAddress() : expandedAddressForTokenId(tokenId);
+  }
+
+  function expandedContractForTokenId(tokenId) {
+    const id = Number(tokenId || 0);
+    const legacyEnd = legacyExpandedLastTokenId();
+    if (legacyExpandedAddress() && legacyExpandedRead && legacyEnd > 0 && id > 444 && id <= legacyEnd) {
+      return legacyExpandedRead;
+    }
+    return nftRead;
+  }
+
+  function expandedAddressForTokenId(tokenId) {
+    const id = Number(tokenId || 0);
+    const legacyEnd = legacyExpandedLastTokenId();
+    if (legacyExpandedAddress() && legacyEnd > 0 && id > 444 && id <= legacyEnd) {
+      return legacyExpandedAddress();
+    }
+    return expandedMintAddress();
   }
 
   function expectedChainDecimal() {
@@ -377,6 +404,9 @@
     if (originalAddress()) {
       originalRead = new ethers.Contract(originalAddress(), nftAbi, provider);
     }
+    if (legacyExpandedAddress()) {
+      legacyExpandedRead = new ethers.Contract(legacyExpandedAddress(), nftAbi, provider);
+    }
     if (marketplaceAddress()) {
       marketRead = new ethers.Contract(marketplaceAddress(), marketplaceAbi, provider);
     }
@@ -514,9 +544,11 @@
   async function refreshMintInfo() {
     try {
       await requireRobinhoodNetwork();
-      const [price, expandedSupply] = await Promise.all([nftRead.MINT_PRICE(), nftRead.totalSupply()]);
+      const reads = [nftRead.MINT_PRICE(), nftRead.totalSupply()];
+      if (legacyExpandedRead) reads.push(legacyExpandedRead.totalSupply());
+      const [price, expandedSupply, legacySupply = 0n] = await Promise.all(reads);
       cachedPrice = price;
-      updateSupplyBar(444 + Number(expandedSupply), 4444);
+      updateSupplyBar(444 + Number(expandedSupply) + Number(legacySupply), 4444);
       updateCostDisplay();
     } catch (_err) {
       await refreshPublicMintInfo();
@@ -528,9 +560,14 @@
       // Read-only RPC fetch so total minted shows before wallet connection.
       const publicProvider = new ethers.JsonRpcProvider(cfg.rpcUrl);
       const publicNft = new ethers.Contract(expandedMintAddress(), nftAbi, publicProvider);
-      const [price, expandedSupply] = await Promise.all([publicNft.MINT_PRICE(), publicNft.totalSupply()]);
+      const reads = [publicNft.MINT_PRICE(), publicNft.totalSupply()];
+      if (legacyExpandedAddress()) {
+        const publicLegacy = new ethers.Contract(legacyExpandedAddress(), nftAbi, publicProvider);
+        reads.push(publicLegacy.totalSupply());
+      }
+      const [price, expandedSupply, legacySupply = 0n] = await Promise.all(reads);
       cachedPrice = price;
-      updateSupplyBar(444 + Number(expandedSupply), 4444);
+      updateSupplyBar(444 + Number(expandedSupply) + Number(legacySupply), 4444);
     } catch (_error) {
       // Keep UI responsive even if public RPC is temporarily unavailable.
     } finally {
@@ -554,7 +591,7 @@
         throw new Error(`Limit reached: maximum ${UI_MAX_MINTS_PER_WALLET} mints per wallet.`);
       }
       if (quantity > remaining) {
-        throw new Error(`UI limit: you can mint up to ${remaining} more from this wallet.`);
+        throw new Error(`Limit: you can mint up to ${remaining} more from this wallet.`);
       }
       const price = cachedPrice || (await nftRead.MINT_PRICE());
       const value = price * BigInt(quantity);
@@ -625,7 +662,7 @@
     const localPreview = previewImgForToken(tokenId);
     if (tokenId <= 444) return localPreview;
     try {
-      const contract = tokenId <= 444 && originalRead ? originalRead : nftRead;
+      const contract = tokenId <= 444 && originalRead ? originalRead : expandedContractForTokenId(tokenId);
       if (!contract) return localPreview;
       const tokenUri = await contract.tokenURI(tokenId);
       const jsonPrefix = "data:application/json;base64,";
@@ -1043,7 +1080,11 @@
     for (const group of chunks) {
       const detailRows = await Promise.all(group.map(async (broker) => {
         const tokenId = broker.tokenId;
-        const contract = broker.collection === "original" ? originalRead : nftRead;
+        const contract = broker.collection === "original"
+          ? originalRead
+          : broker.collection === "expandedLegacy"
+            ? legacyExpandedRead
+            : nftRead;
         const [wallet, fundedToken] = await Promise.all([
           contract.tokenWallet(tokenId),
           contract.fundedToken(tokenId),
@@ -1052,7 +1093,7 @@
         const balance = await stock.balanceOf(wallet);
         const displayBalance = ethers.formatUnits(balance, 18);
         const tokenLabel = labels[fundedToken] || labels[fundedToken.toLowerCase()] || short(fundedToken);
-        const tokenUriImage = broker.collection === "expanded"
+        const tokenUriImage = broker.collection === "expanded" || broker.collection === "expandedLegacy"
           ? await resolveCardImageFromTokenUri(contract, tokenId)
           : null;
         return { broker, wallet, fundedToken, displayBalance, tokenLabel, tokenUriImage };
@@ -1117,11 +1158,12 @@
     tokenList.innerHTML = `<div style="padding:16px;text-align:center"><span class="spinner"></span> Loading your brokers...</div>`;
     try {
       ownedBrokers = [];
-      const [expandedCount, originalCount] = await Promise.all([
+      const [expandedCount, legacyExpandedCount, originalCount] = await Promise.all([
         nftRead.balanceOf(account).then((v) => Number(v)),
+        legacyExpandedRead ? legacyExpandedRead.balanceOf(account).then((v) => Number(v)) : Promise.resolve(0),
         originalRead ? originalRead.balanceOf(account).then((v) => Number(v)) : Promise.resolve(0),
       ]);
-      const totalCount = expandedCount + originalCount;
+      const totalCount = expandedCount + legacyExpandedCount + originalCount;
       setWalletRemainingFromOwned(expandedCount);
       if (totalCount === 0) {
         refreshOwnedBrokerSelectors();
@@ -1131,6 +1173,7 @@
 
       const collections = [];
       if (originalRead) collections.push({ key: "original", contract: originalRead });
+      if (legacyExpandedRead) collections.push({ key: "expandedLegacy", contract: legacyExpandedRead });
       collections.push({ key: "expanded", contract: nftRead });
 
       const tokenIdBatches = await Promise.all(
@@ -1173,6 +1216,7 @@
     if (!addr) return "Unknown";
     const a = addr.toLowerCase();
     if (a === originalAddress().toLowerCase()) return "Original";
+    if (legacyExpandedAddress() && a === legacyExpandedAddress().toLowerCase()) return "Expanded";
     if (a === expandedMintAddress().toLowerCase()) return "Expanded";
     return short(addr);
   }
@@ -1225,7 +1269,12 @@
   function renderOwnedBrokerSelect(selectEl, collectionKey, placeholder) {
     if (!selectEl) return;
     const filtered = ownedBrokers
-      .filter((b) => b.collection === collectionKey)
+      .filter((b) => {
+        if (collectionKey === "expanded") {
+          return b.collection === "expanded" || b.collection === "expandedLegacy";
+        }
+        return b.collection === collectionKey;
+      })
       .sort((a, b) => a.tokenId - b.tokenId);
     const options = [`<option value="">${placeholder}</option>`];
     for (const broker of filtered) {
@@ -1262,8 +1311,8 @@
       ensureMarketplaceConfigured();
       if (!marketWrite) throw new Error("Connect wallet first.");
 
-      const collection = collectionAddressByKey(marketListCollection.value);
       const tokenId = Number(marketListTokenId.value || "0");
+      const collection = collectionAddressByKey(marketListCollection.value, tokenId);
       const listingType = marketListType.value;
       if (!Number.isInteger(tokenId) || tokenId <= 0) throw new Error("Select one of your brokers.");
 
@@ -1382,10 +1431,10 @@
       await ensureWritableContract();
       await requireRobinhoodNetwork();
       ensureMarketplaceConfigured();
-      const offeredCollection = collectionAddressByKey(marketSwapOfferedCollection.value);
-      const requestedCollection = collectionAddressByKey(marketSwapRequestedCollection.value);
       const offeredId = Number(marketSwapOfferedTokenId.value || "0");
       const requestedId = Number(marketSwapRequestedTokenId.value || "0");
+      const offeredCollection = collectionAddressByKey(marketSwapOfferedCollection.value, offeredId);
+      const requestedCollection = collectionAddressByKey(marketSwapRequestedCollection.value, requestedId);
       if (!Number.isInteger(offeredId) || offeredId <= 0) throw new Error("Select one of your brokers to offer.");
       if (!Number.isInteger(requestedId) || requestedId <= 0) throw new Error("Invalid requested token ID.");
 

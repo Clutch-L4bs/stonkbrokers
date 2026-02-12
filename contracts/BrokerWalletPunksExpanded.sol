@@ -12,16 +12,16 @@ import "./ERC6551Registry.sol";
 contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard {
     using Strings for uint256;
 
-    uint256 public constant START_TOKEN_ID = 445;
-    uint256 public constant END_TOKEN_ID = 4444;
-    uint256 public constant MAX_SUPPLY = 4000;
+    uint256 public immutable START_TOKEN_ID;
+    uint256 public immutable END_TOKEN_ID;
+    uint256 public immutable MAX_SUPPLY;
     uint256 public constant MINT_PRICE = 0.01 ether;
     uint256 public constant MAX_PER_TX = 10;
 
     ERC6551Registry public immutable registry;
     address public immutable accountImplementation;
     bytes32 public constant ACCOUNT_SALT = bytes32(0);
-    uint256 private nextTokenId = START_TOKEN_ID;
+    uint256 private nextTokenId;
     address[] private stockTokens;
 
     mapping(uint256 => address) public tokenWallet;
@@ -29,19 +29,29 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
     mapping(uint256 => uint256) public initialWalletGrant;
     mapping(address => uint256) public fundedTokenMintCount;
     mapping(bytes32 => bool) private usedTraitSignatures;
+    mapping(uint256 => uint256) private tokenTraitSeed;
+    uint256 private constant MAX_TRAIT_SEED_ATTEMPTS = 256;
 
     event WalletCreated(uint256 indexed tokenId, address indexed wallet);
     event WalletFunded(uint256 indexed tokenId, address indexed stockToken, uint256 amount);
 
     constructor(
         address[] memory stockTokenAddresses,
+        uint256 startTokenId,
+        uint256 endTokenId,
         address registryAddress,
         address accountImplementationAddress,
         address initialOwner
     ) ERC721("Stonk Brokers (Expanded)", "STONKX") Ownable(initialOwner) {
         require(stockTokenAddresses.length > 0, "no stock tokens");
+        require(startTokenId >= 445, "start < 445");
+        require(endTokenId >= startTokenId, "end < start");
         require(registryAddress != address(0), "registry=0");
         require(accountImplementationAddress != address(0), "account impl=0");
+        START_TOKEN_ID = startTokenId;
+        END_TOKEN_ID = endTokenId;
+        MAX_SUPPLY = (endTokenId - startTokenId) + 1;
+        nextTokenId = startTokenId;
         registry = ERC6551Registry(registryAddress);
         accountImplementation = accountImplementationAddress;
         for (uint256 i = 0; i < stockTokenAddresses.length; i++) {
@@ -61,9 +71,7 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
             require(tokenId <= END_TOKEN_ID, "sold out");
             nextTokenId += 1;
 
-            bytes32 sig = _traitSignature(tokenId);
-            require(!usedTraitSignatures[sig], "trait duplicate");
-            usedTraitSignatures[sig] = true;
+            _assignUniqueTraitSeed(tokenId);
 
             _safeMint(msg.sender, tokenId);
 
@@ -121,9 +129,11 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
             abi.encodePacked(
                 '{"name":"Stonk Broker #',
                 tokenId.toString(),
-                '","description":"Expanded Stonk Brokers collection (token IDs #445-#4444). Each NFT is 100% onchain and includes a token-bound wallet funded at mint.","attributes":[',
+                '","description":"Expanded Stonk Brokers continuation collection on Robinhood Chain. Each NFT is 100% onchain and includes a token-bound wallet funded at mint.","attributes":[',
                 '{"trait_type":"Collection","value":"Expanded"},',
-                '{"trait_type":"Global ID Start","value":"445"},',
+                '{"trait_type":"Global ID Start","value":"',
+                START_TOKEN_ID.toString(),
+                '"},',
                 '{"trait_type":"Wallet Address","value":"',
                 Strings.toHexString(uint256(uint160(wallet)), 20),
                 '"},{"trait_type":"Stock Token","value":"',
@@ -195,19 +205,40 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
         revert("insufficient token inventory");
     }
 
-    function _traitSignature(uint256 tokenId) internal pure returns (bytes32) {
-        uint256 seed = uint256(keccak256(abi.encodePacked("STONK_TRAIT_SIG_EXPANDED", tokenId)));
+    function _assignUniqueTraitSeed(uint256 tokenId) internal {
+        for (uint256 attempt = 0; attempt < MAX_TRAIT_SEED_ATTEMPTS; attempt++) {
+            uint256 seed = _candidateTraitSeed(tokenId, attempt);
+            bytes32 sig = _traitSignatureFromSeed(seed);
+            if (!usedTraitSignatures[sig]) {
+                usedTraitSignatures[sig] = true;
+                tokenTraitSeed[tokenId] = seed;
+                return;
+            }
+        }
+        revert("trait space exhausted");
+    }
+
+    function _candidateTraitSeed(uint256 tokenId, uint256 attempt) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encodePacked("STONK_TRAIT_SIG_EXPANDED", tokenId, attempt)));
+    }
+
+    function _traitSignatureFromSeed(uint256 seed) internal pure returns (bytes32) {
         uint8 skinType = uint8(seed % 5); // normal/devil/zombie/robot/marshmallow
         uint8 hairType = uint8((seed / 11) % 4); // bald/classic/afro/side-part
-        uint8 accessory = uint8((seed / 31) % 4); // none/sunglasses/3d/halo
+        uint8 accessory = uint8((seed / 31) % 5); // none/sunglasses/3d/halo/headset
         uint8 tieColor = uint8((seed / 71) % 6);
         uint8 suitColor = uint8((seed / 97) % 6);
         uint8 eyeColor = uint8((seed / 131) % 8);
-        return keccak256(abi.encodePacked(skinType, hairType, accessory, tieColor, suitColor, eyeColor));
+        uint8 mouthStyle = uint8((seed / 191) % 4); // flat/smile/frown/open
+        return keccak256(abi.encodePacked(skinType, hairType, accessory, tieColor, suitColor, eyeColor, mouthStyle));
     }
 
-    function _renderSvg(uint256 tokenId) internal pure returns (string memory) {
-        uint256 seed = uint256(keccak256(abi.encodePacked("STONK_ART_EXPANDED", tokenId)));
+    function _renderSvg(uint256 tokenId) internal view returns (string memory) {
+        uint256 seed = tokenTraitSeed[tokenId];
+        if (seed == 0) {
+            // Fallback keeps deterministic previews for edge cases.
+            seed = uint256(keccak256(abi.encodePacked("STONK_ART_EXPANDED", tokenId)));
+        }
         string memory bg = _hex(_pickBackground(seed));
         string memory suit = _hex(_pickSuit(seed));
         string memory tie = _hex(_pickTie(seed));
@@ -241,7 +272,8 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
                     eye,
                     '"/><rect x="14" y="8" width="1" height="1" fill="#',
                     eye,
-                    '"/><rect x="10" y="13" width="4" height="1" fill="#101010"/>',
+                    '"/>',
+                    _renderMouth(seed),
                     _renderHair(seed, hair),
                     _renderAccessory(seed)
                 )
@@ -276,7 +308,7 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
     }
 
     function _renderAccessory(uint256 seed) internal pure returns (string memory) {
-        uint256 acc = (seed / 31) % 4;
+        uint256 acc = (seed / 31) % 5;
         if (acc == 0) return "";
         if (acc == 1) {
             return '<rect x="8" y="7" width="3" height="2" fill="#101216"/><rect x="13" y="7" width="3" height="2" fill="#101216"/><rect x="11" y="7" width="2" height="1" fill="#3a3f47"/>';
@@ -284,7 +316,25 @@ contract BrokerWalletPunksExpanded is ERC721Enumerable, Ownable, ReentrancyGuard
         if (acc == 2) {
             return '<rect x="8" y="7" width="3" height="2" fill="#de2b2b"/><rect x="13" y="7" width="3" height="2" fill="#2b6bff"/><rect x="11" y="7" width="2" height="1" fill="#d3d7de"/>';
         }
-        return '<rect x="9" y="2" width="6" height="1" fill="#f2e189"/><rect x="8" y="3" width="8" height="1" fill="#f2e189"/>';
+        if (acc == 3) {
+            return '<rect x="9" y="2" width="6" height="1" fill="#f2e189"/><rect x="8" y="3" width="8" height="1" fill="#f2e189"/>';
+        }
+        return
+            '<rect x="6" y="7" width="1" height="4" fill="#2a2f3a"/><rect x="17" y="7" width="1" height="4" fill="#2a2f3a"/><rect x="7" y="6" width="10" height="1" fill="#2a2f3a"/><rect x="10" y="6" width="4" height="1" fill="#3f495c"/>';
+    }
+
+    function _renderMouth(uint256 seed) internal pure returns (string memory) {
+        uint256 mouth = (seed / 191) % 4;
+        if (mouth == 0) {
+            return '<rect x="10" y="13" width="4" height="1" fill="#101010"/>';
+        }
+        if (mouth == 1) {
+            return '<rect x="10" y="13" width="1" height="1" fill="#101010"/><rect x="11" y="14" width="2" height="1" fill="#101010"/><rect x="13" y="13" width="1" height="1" fill="#101010"/>';
+        }
+        if (mouth == 2) {
+            return '<rect x="10" y="14" width="1" height="1" fill="#101010"/><rect x="11" y="13" width="2" height="1" fill="#101010"/><rect x="13" y="14" width="1" height="1" fill="#101010"/>';
+        }
+        return '<rect x="10" y="13" width="4" height="2" fill="#101010"/><rect x="11" y="14" width="2" height="1" fill="#5a1111"/>';
     }
 
     function _pickBackground(uint256 seed) internal pure returns (bytes3) {

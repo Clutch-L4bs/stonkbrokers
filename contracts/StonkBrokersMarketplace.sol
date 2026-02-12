@@ -36,6 +36,7 @@ contract StonkBrokersMarketplace is Ownable, ReentrancyGuard, IERC721Receiver {
     }
 
     address public immutable originalCollection;
+    address public immutable legacyExpandedCollection;
     address public immutable expandedCollection;
     uint256 public nextListingId = 1;
     uint256 public nextSwapId = 1;
@@ -65,15 +66,24 @@ contract StonkBrokersMarketplace is Ownable, ReentrancyGuard, IERC721Receiver {
     event SwapCancelled(uint256 indexed swapId);
     event SwapFilled(uint256 indexed swapId, address indexed taker);
 
-    constructor(address _originalCollection, address _expandedCollection, address initialOwner) Ownable(initialOwner) {
+    constructor(
+        address _originalCollection,
+        address _legacyExpandedCollection,
+        address _expandedCollection,
+        address initialOwner
+    ) Ownable(initialOwner) {
         require(_originalCollection != address(0), "original=0");
         require(_expandedCollection != address(0), "expanded=0");
         originalCollection = _originalCollection;
+        legacyExpandedCollection = _legacyExpandedCollection;
         expandedCollection = _expandedCollection;
     }
 
     modifier onlySupportedCollection(address nft) {
-        require(nft == originalCollection || nft == expandedCollection, "unsupported nft");
+        require(
+            nft == originalCollection || nft == expandedCollection || (legacyExpandedCollection != address(0) && nft == legacyExpandedCollection),
+            "unsupported nft"
+        );
         _;
     }
 
