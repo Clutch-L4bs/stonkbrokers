@@ -175,7 +175,8 @@ contract BrokerWalletPunks is ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 expectedMintsForToken = (remainingMints / stockTokens.length) + 1;
         uint256 perMintBudget = tokenBalance / expectedMintsForToken;
         if (perMintBudget == 0) {
-            return 0;
+            // If any dust remains, still allow a minimal transfer to avoid stalling mint.
+            return tokenBalance > 0 ? 1 : 0;
         }
 
         uint256 seed = uint256(keccak256(abi.encodePacked("STONK_BROKERS", tokenId, tokenAddress)));
@@ -204,6 +205,7 @@ contract BrokerWalletPunks is ERC721Enumerable, Ownable, ReentrancyGuard {
             address candidate = stockTokens[i];
             uint256 balance = IERC20(candidate).balanceOf(address(this));
             if (balance == 0) continue;
+            if (_stockGrantForToken(tokenId, candidate, balance) == 0) continue;
 
             uint256 assigned = fundedTokenMintCount[candidate];
             if (assigned < minAssigned) {
@@ -224,7 +226,7 @@ contract BrokerWalletPunks is ERC721Enumerable, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < stockTokens.length; i++) {
             address candidate = stockTokens[i];
             uint256 balance = IERC20(candidate).balanceOf(address(this));
-            if (balance > 0 && fundedTokenMintCount[candidate] == minAssigned) {
+            if (balance > 0 && _stockGrantForToken(tokenId, candidate, balance) > 0 && fundedTokenMintCount[candidate] == minAssigned) {
                 if (cursor == pick) {
                     return (candidate, balance);
                 }
@@ -236,7 +238,7 @@ contract BrokerWalletPunks is ERC721Enumerable, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < stockTokens.length; i++) {
             address candidate = stockTokens[i];
             uint256 balance = IERC20(candidate).balanceOf(address(this));
-            if (balance > 0) {
+            if (balance > 0 && _stockGrantForToken(tokenId, candidate, balance) > 0) {
                 return (candidate, balance);
             }
         }

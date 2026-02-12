@@ -16,6 +16,7 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true,
     },
   },
   networks: {
@@ -26,5 +27,20 @@ module.exports = {
         ? Number(process.env.ROBINHOOD_CHAIN_ID)
         : 46630,
     },
+  },
+  etherscan: {
+    apiKey: {
+      robinhoodTestnet: "empty",
+    },
+    customChains: [
+      {
+        network: "robinhoodTestnet",
+        chainId: 46630,
+        urls: {
+          apiURL: "https://explorer.testnet.chain.robinhood.com/api",
+          browserURL: "https://explorer.testnet.chain.robinhood.com",
+        },
+      },
+    ],
   },
 };

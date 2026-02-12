@@ -6,6 +6,7 @@
     "compile": "npx hardhat compile",
     "test": "npx hardhat test",
     "deploy:robinhood": "npx hardhat run scripts/deploy.js --network robinhoodTestnet",
+    "deploy:expanded": "npx hardhat run scripts/deploy-expanded-marketplace.js --network robinhoodTestnet",
     "fund:robinhood": "npx hardhat run scripts/fund-inventory.js --network robinhoodTestnet",
     "seed:robinhood": "npx hardhat run scripts/seed-inventory.js --network robinhoodTestnet",
     "mint:robinhood": "npx hardhat run scripts/mint.js --network robinhoodTestnet",
