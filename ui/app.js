@@ -627,6 +627,17 @@
       const amountWei = cfg.faucetClaimAmountWei
         ? BigInt(cfg.faucetClaimAmountWei)
         : await reader.claimAmountWei();
+      const faucetBalance = await readProvider.getBalance(addr);
+      if (faucetBalance < amountWei) {
+        faucetClaimBtn.disabled = true;
+        setStatus(
+          faucetStatus,
+          `Faucet is temporarily empty. <a href="${faucetUrlSafe()}" target="_blank" rel="noreferrer">Use Robinhood faucet</a>.`,
+          "error",
+          true
+        );
+        return;
+      }
 
       if (!account) {
         faucetClaimBtn.disabled = true;
@@ -634,6 +645,18 @@
           faucetStatus,
           `Connect wallet to claim ${ethers.formatEther(amountWei)} ETH (once every 24h).`,
           "pending"
+        );
+        return;
+      }
+
+      const walletEth = await readProvider.getBalance(account);
+      if (walletEth === 0n) {
+        faucetClaimBtn.disabled = true;
+        setStatus(
+          faucetStatus,
+          `You need a small amount of gas ETH first. <a href="${faucetUrlSafe()}" target="_blank" rel="noreferrer">Use Robinhood faucet</a> before claiming here.`,
+          "error",
+          true
         );
         return;
       }
@@ -671,6 +694,18 @@
       await ensureWritableContract();
       await requireRobinhoodNetwork();
       if (!faucetWrite) throw new Error("Faucet not configured.");
+
+      const ethBalance = await getWalletEthBalance();
+      if (ethBalance === 0n) {
+        setStatus(
+          faucetStatus,
+          `You need gas ETH first. <a href="${faucetUrlSafe()}" target="_blank" rel="noreferrer">Use Robinhood faucet</a>, then claim here.`,
+          "error",
+          true
+        );
+        return;
+      }
+
       setButtonLoading(faucetClaimBtn, true, "Claiming...");
       setStatus(faucetStatus, `<span class="spinner"></span> Sending faucet claim...`, "pending", true);
       const tx = await faucetWrite.claim();
@@ -679,7 +714,17 @@
       setStatus(faucetStatus, `Faucet claim confirmed: ${short(tx.hash)}`, "ok");
       await refreshFaucetStatus();
     } catch (err) {
-      setStatus(faucetStatus, err.message || String(err), "error");
+      const message = err && err.message ? err.message : String(err);
+      if (message.toLowerCase().includes("faucet empty")) {
+        setStatus(
+          faucetStatus,
+          `Faucet is empty right now. <a href="${faucetUrlSafe()}" target="_blank" rel="noreferrer">Use Robinhood faucet</a>.`,
+          "error",
+          true
+        );
+      } else {
+        setStatus(faucetStatus, message, "error");
+      }
     } finally {
       setButtonLoading(faucetClaimBtn, false);
     }
