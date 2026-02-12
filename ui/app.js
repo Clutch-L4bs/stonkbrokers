@@ -596,7 +596,9 @@
   async function openNftModal(nft) {
     if (!nftModalBackdrop || !nftModalImage) return;
     selectedNft = nft;
-    nftModalImage.src = await resolveNftImage(nft.tokenId);
+    const resolvedSrc = await resolveNftImage(nft.tokenId);
+    selectedNft.resolvedImageSrc = resolvedSrc;
+    nftModalImage.src = resolvedSrc;
     nftModalImage.alt = `Stonk Broker #${nft.tokenId}`;
     if (nftModalTokenId) nftModalTokenId.textContent = `#${nft.tokenId}`;
     if (nftModalFundedToken) nftModalFundedToken.textContent = nft.tokenLabel;
@@ -653,7 +655,7 @@
   function shareSelectedNftOnX() {
     if (!selectedNft) return;
     const text =
-      `Just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain Testnet.\n` +
+      `Just minted Stonk Broker #${selectedNft.tokenId} on Robinhood Chain.\n` +
       `Funded token: $${selectedNft.tokenLabel}.\n` +
       `Mint yours: https://stonkbrokers.cash\n` +
       `Powered by Clutch Markets (@clutchmarkets)\n` +
@@ -662,26 +664,122 @@
     // Download the image automatically so attaching it in X is faster.
     downloadSelectedNftImage(true);
     window.open(tweetUrl, "_blank", "noopener,noreferrer");
-    setShareHint("Caption opened on X and broker SVG downloaded. Attach the image to your post.");
+    setShareHint("Caption opened on X and broker PNG downloaded. Attach the image to your post.");
   }
 
   async function copySelectedNftImageLink() {
     if (!selectedNft) return;
-    const url = nftImageUrl(selectedNft.tokenId);
+    const src = selectedNft.resolvedImageSrc || nftImageUrl(selectedNft.tokenId);
+    // For on-chain data URIs, copy image to clipboard as PNG blob
+    if (src.startsWith("data:image/")) {
+      try {
+        let svgText;
+        if (src.includes(";base64,")) {
+          svgText = atob(src.split(";base64,")[1]);
+        } else {
+          svgText = decodeURIComponent(src.split(",").slice(1).join(","));
+        }
+        const svgBlob = new Blob([svgText], { type: "image/svg+xml" });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = async function () {
+          const canvas = document.createElement("canvas");
+          canvas.width = 600;
+          canvas.height = 600;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, 600, 600);
+          URL.revokeObjectURL(svgUrl);
+          canvas.toBlob(async function (blob) {
+            if (!blob) { setShareHint("Could not generate image."); return; }
+            try {
+              await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+              setShareHint("Broker PNG copied to clipboard. Paste it directly in your X post.");
+            } catch (_err) {
+              setShareHint("Browser blocked clipboard write. Use the download button instead.");
+            }
+          }, "image/png");
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(svgUrl);
+          setShareHint("Could not render image. Use the download button instead.");
+        };
+        img.src = svgUrl;
+        return;
+      } catch (_err) {
+        // Fall through
+      }
+    }
+    // Hosted image: copy the URL
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(src);
       setShareHint("Image link copied. Paste it in your X post.");
     } catch (_error) {
-      setShareHint(`Copy failed. Use this link: ${url}`);
+      setShareHint(`Copy failed. Use this link: ${src}`);
     }
   }
 
   function downloadSelectedNftImage(silent = false) {
     if (!selectedNft) return;
-    const url = nftImageUrl(selectedNft.tokenId);
+    const src = selectedNft.resolvedImageSrc || nftImageUrl(selectedNft.tokenId);
+    const filename = `stonk-broker-${selectedNft.tokenId}`;
+
+    // Handle data:image/svg+xml URIs (on-chain images)
+    if (src.startsWith("data:image/svg+xml")) {
+      try {
+        let svgText;
+        if (src.includes(";base64,")) {
+          svgText = atob(src.split(";base64,")[1]);
+        } else {
+          svgText = decodeURIComponent(src.split(",").slice(1).join(","));
+        }
+        // Create a PNG via canvas for better X compatibility
+        const svgBlob = new Blob([svgText], { type: "image/svg+xml" });
+        const svgUrl = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = function () {
+          const canvas = document.createElement("canvas");
+          canvas.width = 600;
+          canvas.height = 600;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, 600, 600);
+          URL.revokeObjectURL(svgUrl);
+          canvas.toBlob(function (blob) {
+            if (!blob) return;
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = `${filename}.png`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+            if (!silent) {
+              setShareHint("Downloaded PNG. You can upload it directly in X compose.");
+            }
+          }, "image/png");
+        };
+        img.onerror = function () {
+          // Fallback: download raw SVG
+          URL.revokeObjectURL(svgUrl);
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(svgBlob);
+          a.download = `${filename}.svg`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          if (!silent) setShareHint("Downloaded SVG. You can upload it directly in X compose.");
+        };
+        img.src = svgUrl;
+        return;
+      } catch (_err) {
+        // Fall through to default behavior
+      }
+    }
+
+    // Default: direct link download
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `stonk-broker-${selectedNft.tokenId}.svg`;
+    a.href = src;
+    a.download = `${filename}.svg`;
     document.body.appendChild(a);
     a.click();
     a.remove();
