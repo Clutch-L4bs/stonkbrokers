@@ -23,6 +23,12 @@
     "function approve(address to,uint256 tokenId)",
   ];
   const erc20Abi = ["function balanceOf(address account) view returns (uint256)"];
+  const faucetAbi = [
+    "function claim()",
+    "function canClaim(address user) view returns (bool)",
+    "function nextClaimTime(address user) view returns (uint256)",
+    "function claimAmountWei() view returns (uint256)",
+  ];
   const marketplaceAbi = [
     "function nextListingId() view returns (uint256)",
     "function nextSwapId() view returns (uint256)",
@@ -41,6 +47,7 @@
   /* ── DOM refs ────────────────────────────────────── */
   const connectBtn = document.getElementById("connectBtn");
   const switchBtn = document.getElementById("switchBtn");
+  const faucetClaimBtn = document.getElementById("faucetClaimBtn");
   const mintBtn = document.getElementById("mintBtn");
   const refreshBtn = document.getElementById("refreshBtn");
   const faucetLink = document.getElementById("faucetLink");
@@ -52,6 +59,7 @@
   const walletLabel = document.getElementById("walletLabel");
   const netDot = document.getElementById("netDot");
   const connectStatus = document.getElementById("connectStatus");
+  const faucetStatus = document.getElementById("faucetStatus");
   const mintInfo = document.getElementById("mintInfo");
   const mintStatus = document.getElementById("mintStatus");
   const tokenList = document.getElementById("tokenList");
@@ -126,6 +134,8 @@
   let nftWrite;
   let originalRead;
   let legacyExpandedRead;
+  let faucetRead;
+  let faucetWrite;
   let marketRead;
   let marketWrite;
   let walletEventsBound = false;
@@ -267,6 +277,20 @@
       : "https://faucet.testnet.chain.robinhood.com";
   }
 
+  function faucetContractAddress() {
+    return cfg.faucetContractAddress || "";
+  }
+
+  function formatCooldown(seconds) {
+    const s = Math.max(0, Number(seconds || 0));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${sec}s`;
+    return `${sec}s`;
+  }
+
   async function getWalletEthBalance() {
     if (!provider || !account) return 0n;
     return provider.getBalance(account);
@@ -312,7 +336,7 @@
   /* ── Dynamic cost display ────────────────────────── */
   function updateCostDisplay() {
     if (!mintInfo) return;
-    const qty = Math.max(1, Math.min(1, Number(qtyInput.value) || 1));
+    const qty = Math.max(1, Math.min(UI_MAX_MINTS_PER_WALLET, Number(qtyInput.value) || 1));
     const limitLabel = `Expanded wallet remaining: ${walletRemainingMints}/${UI_MAX_MINTS_PER_WALLET}`;
     if (cachedPrice) {
       const total = cachedPrice * BigInt(qty);
@@ -349,6 +373,9 @@
   function configureLinks() {
     if (faucetLink) {
       faucetLink.href = cfg.faucetUrl || "https://faucet.testnet.chain.robinhood.com";
+    }
+    if (faucetClaimBtn && !faucetContractAddress()) {
+      faucetClaimBtn.disabled = true;
     }
     const mintAddress = expandedMintAddress();
     if (contractLink && contractAddr && mintAddress) {
@@ -407,6 +434,9 @@
     if (legacyExpandedAddress()) {
       legacyExpandedRead = new ethers.Contract(legacyExpandedAddress(), nftAbi, provider);
     }
+    if (faucetContractAddress()) {
+      faucetRead = new ethers.Contract(faucetContractAddress(), faucetAbi, provider);
+    }
     if (marketplaceAddress()) {
       marketRead = new ethers.Contract(marketplaceAddress(), marketplaceAbi, provider);
     }
@@ -414,10 +444,12 @@
       try {
         signer = await provider.getSigner(account);
         nftWrite = nftRead.connect(signer);
+        if (faucetRead) faucetWrite = faucetRead.connect(signer);
         if (marketRead) marketWrite = marketRead.connect(signer);
       } catch (_err) {
         signer = undefined;
         nftWrite = undefined;
+        faucetWrite = undefined;
         marketWrite = undefined;
       }
     }
@@ -428,6 +460,7 @@
     if (!account) throw new Error("Connect wallet first.");
     signer = await provider.getSigner(account);
     nftWrite = nftRead.connect(signer);
+    if (faucetRead) faucetWrite = faucetRead.connect(signer);
     if (marketRead) marketWrite = marketRead.connect(signer);
     return nftWrite;
   }
@@ -444,6 +477,7 @@
     walletLabel.classList.add("connected");
     setStatus(connectStatus, "");
     await refreshMintInfo();
+    await refreshFaucetStatus();
     const ethBalance = await getWalletEthBalance();
     if (ethBalance === 0n) {
       showFaucetPrompt(connectStatus, "No Robinhood testnet ETH detected in your wallet.");
@@ -465,10 +499,12 @@
           account = undefined;
           signer = undefined;
           nftWrite = undefined;
+          faucetWrite = undefined;
           setWalletRemainingFromOwned(0);
           walletLabel.innerHTML = `<span class="net-dot" id="netDot"></span> Not connected`;
           walletLabel.classList.remove("connected");
           showEmptyState();
+          await refreshFaucetStatus();
           setStatus(connectStatus, "Wallet disconnected.", "pending");
           return;
         }
@@ -480,6 +516,7 @@
         walletLabel.classList.add("connected");
         setStatus(connectStatus, "Account changed.", "ok");
         await refreshMintInfo();
+        await refreshFaucetStatus();
         await loadOwnedTokens();
       } catch (err) {
         setStatus(connectStatus, err.message || err, "error");
@@ -498,6 +535,7 @@
           nftWrite = nftRead.connect(signer);
         }
         await refreshMintInfo();
+        await refreshFaucetStatus();
         if (account) await loadOwnedTokens();
         updateNetDot();
         setStatus(connectStatus, "Network updated.", "ok");
@@ -575,6 +613,78 @@
     }
   }
 
+  async function refreshFaucetStatus() {
+    if (!faucetStatus || !faucetClaimBtn) return;
+    const addr = faucetContractAddress();
+    if (!addr) {
+      faucetClaimBtn.disabled = true;
+      setStatus(faucetStatus, "Faucet not configured yet.", "pending");
+      return;
+    }
+    try {
+      const readProvider = provider || new ethers.JsonRpcProvider(cfg.rpcUrl);
+      const reader = faucetRead || new ethers.Contract(addr, faucetAbi, readProvider);
+      const amountWei = cfg.faucetClaimAmountWei
+        ? BigInt(cfg.faucetClaimAmountWei)
+        : await reader.claimAmountWei();
+
+      if (!account) {
+        faucetClaimBtn.disabled = true;
+        setStatus(
+          faucetStatus,
+          `Connect wallet to claim ${ethers.formatEther(amountWei)} ETH (once every 24h).`,
+          "pending"
+        );
+        return;
+      }
+
+      const [claimable, nextTime] = await Promise.all([
+        reader.canClaim(account),
+        reader.nextClaimTime(account),
+      ]);
+      if (claimable) {
+        faucetClaimBtn.disabled = false;
+        setStatus(
+          faucetStatus,
+          `Eligible now: claim ${ethers.formatEther(amountWei)} ETH for minting.`,
+          "ok"
+        );
+      } else {
+        faucetClaimBtn.disabled = true;
+        const now = Math.floor(Date.now() / 1000);
+        const wait = Math.max(0, Number(nextTime) - now);
+        setStatus(
+          faucetStatus,
+          `Next claim in ${formatCooldown(wait)} (one claim per wallet every 24h).`,
+          "pending"
+        );
+      }
+    } catch (err) {
+      faucetClaimBtn.disabled = true;
+      setStatus(faucetStatus, err.message || String(err), "error");
+    }
+  }
+
+  async function claimFromFaucet() {
+    if (!faucetClaimBtn) return;
+    try {
+      await ensureWritableContract();
+      await requireRobinhoodNetwork();
+      if (!faucetWrite) throw new Error("Faucet not configured.");
+      setButtonLoading(faucetClaimBtn, true, "Claiming...");
+      setStatus(faucetStatus, `<span class="spinner"></span> Sending faucet claim...`, "pending", true);
+      const tx = await faucetWrite.claim();
+      setStatus(faucetStatus, `<span class="spinner"></span> Confirming: ${short(tx.hash)}`, "pending", true);
+      await tx.wait();
+      setStatus(faucetStatus, `Faucet claim confirmed: ${short(tx.hash)}`, "ok");
+      await refreshFaucetStatus();
+    } catch (err) {
+      setStatus(faucetStatus, err.message || String(err), "error");
+    } finally {
+      setButtonLoading(faucetClaimBtn, false);
+    }
+  }
+
   /* ── Mint ────────────────────────────────────────── */
   async function mint() {
     if (isMinting) return;
@@ -583,7 +693,7 @@
     try {
       const writable = await ensureWritableContract();
       await requireRobinhoodNetwork();
-      const quantity = Math.max(1, Math.min(1, Number(qtyInput.value) || 1));
+      const quantity = Math.max(1, Math.min(UI_MAX_MINTS_PER_WALLET, Number(qtyInput.value) || 1));
       const expandedOwned = Number(await nftRead.balanceOf(account));
       const remaining = Math.max(0, UI_MAX_MINTS_PER_WALLET - expandedOwned);
       setWalletRemainingFromOwned(expandedOwned);
@@ -1563,6 +1673,11 @@
     marketModalBackdrop.setAttribute("aria-hidden", "false");
 
     try {
+      const onchainImage = await resolveTokenImageByAddress(nft, tokenId);
+      if (onchainImage && marketModalImage && marketModalImage.isConnected) {
+        marketModalImage.onerror = null;
+        marketModalImage.src = onchainImage;
+      }
       const readProvider = getReadProvider();
       const nftReadAny = new ethers.Contract(nft, nftAbi, readProvider);
       const [wallet, fundedTkn] = await Promise.all([nftReadAny.tokenWallet(tokenId), nftReadAny.fundedToken(tokenId)]);
@@ -1786,7 +1901,7 @@
   /* ── Quantity stepper ────────────────────────────── */
   function clampQty() {
     let v = Number(qtyInput.value) || 1;
-    v = Math.max(1, Math.min(1, v));
+    v = Math.max(1, Math.min(UI_MAX_MINTS_PER_WALLET, v));
     qtyInput.value = v;
     updateCostDisplay();
   }
@@ -1798,7 +1913,7 @@
   }
   if (qtyPlus) {
     qtyPlus.addEventListener("click", () => {
-      qtyInput.value = Math.min(1, (Number(qtyInput.value) || 1) + 1);
+      qtyInput.value = Math.min(UI_MAX_MINTS_PER_WALLET, (Number(qtyInput.value) || 1) + 1);
       updateCostDisplay();
     });
   }
@@ -1826,6 +1941,7 @@
     try {
       await switchNetwork();
       await refreshMintInfo();
+      await refreshFaucetStatus();
       await refreshMarketplaceFeed();
     } catch (err) {
       setStatus(connectStatus, err.message || err, "error");
@@ -1836,10 +1952,15 @@
 
   mintBtn.addEventListener("click", () => mint());
 
+  if (faucetClaimBtn) {
+    faucetClaimBtn.addEventListener("click", claimFromFaucet);
+  }
+
   refreshBtn.addEventListener("click", async () => {
     setButtonLoading(refreshBtn, true, "Loading...");
     try {
       await loadOwnedTokens();
+      await refreshFaucetStatus();
       await refreshMarketplaceFeed();
       setStatus(mintStatus, "");
     } catch (err) {
@@ -1951,6 +2072,7 @@
   // Keep initial load fully read-only and non-interactive with wallet.
   // No wallet RPC calls until user presses Connect/Switch.
   refreshPublicMintInfo();
+  refreshFaucetStatus();
   refreshMarketplaceFeed();
   hideLoader();
 })();

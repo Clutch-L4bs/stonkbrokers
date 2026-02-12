@@ -1401,7 +1401,7 @@
         <div class="step">
           <div class="step-num">2</div>
           <div class="step-title">Mint Expanded Broker</div>
-          <div class="step-desc">Original #1-#444 is minted out. New mints start at #445.</div>
+          <div class="step-desc">Original #1-#444 is minted out. Expanded continuation mints now start at #683.</div>
         </div>
         <div class="step">
           <div class="step-num">3</div>
@@ -1428,7 +1428,7 @@
           <div class="mint-row">
             <div class="qty-stepper">
               <button type="button" id="qtyMinus">-</button>
-              <input id="qty" type="number" min="1" max="1" value="1" />
+              <input id="qty" type="number" min="1" max="2" value="1" />
               <button type="button" id="qtyPlus">+</button>
             </div>
             <button id="mintBtn" class="primary mint-pulse">Mint Now</button>
@@ -1442,10 +1442,12 @@
           <h3><span class="icon">~</span> Network</h3>
           <div class="row connect-row">
             <button id="switchBtn" class="secondary btn-sm">Switch to Robinhood Testnet</button>
+            <button id="faucetClaimBtn" class="primary btn-sm">Claim Mint ETH (24h)</button>
           </div>
           <div class="connect-links">
             <a id="faucetLink" href="#" target="_blank" rel="noreferrer">Get testnet ETH</a>
           </div>
+          <div id="faucetStatus" class="status"></div>
           <div id="connectStatus" class="status"></div>
         </div>
       </div>

@@ -9,6 +9,8 @@ window.STONK_CONFIG = {
   },
   blockExplorerUrl: "https://explorer.testnet.chain.robinhood.com",
   faucetUrl: "https://faucet.testnet.chain.robinhood.com",
+  faucetContractAddress: "0x4B3fFFFD5120666B9493c6464aFb2FC0877F3eeE",
+  faucetClaimAmountWei: "12000000000000000",
   thirdwebWalletUrl: "https://thirdweb.com/wallets",
   thirdwebClientId: "4c523702514e7c75d8e18bac6dc61b7d",
   originalNftAddress: "0x2Bb22c9E3394272351FEffEDbEa079Be4FB10a8d",
