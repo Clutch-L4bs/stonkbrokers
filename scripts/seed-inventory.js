@@ -8,11 +8,13 @@ function parseStockTokens() {
 }
 
 async function main() {
-  const nftAddress = process.env.NFT_CONTRACT_ADDRESS;
+  const nftAddress = process.env.TARGET_NFT_CONTRACT_ADDRESS
+    || process.env.EXPANDED_NFT_CONTRACT_ADDRESS
+    || process.env.NFT_CONTRACT_ADDRESS;
   const stockTokens = parseStockTokens();
   const humanAmount = process.env.FUND_TOKEN_AMOUNT || "5";
 
-  if (!nftAddress) throw new Error("Set NFT_CONTRACT_ADDRESS in .env");
+  if (!nftAddress) throw new Error("Set TARGET_NFT_CONTRACT_ADDRESS, EXPANDED_NFT_CONTRACT_ADDRESS, or NFT_CONTRACT_ADDRESS in .env");
   if (stockTokens.length === 0) throw new Error("Set STOCK_TOKEN_ADDRESSES in .env");
 
   const [signer] = await hre.ethers.getSigners();
