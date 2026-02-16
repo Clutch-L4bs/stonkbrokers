@@ -200,25 +200,43 @@ function RangeVisualization({
           <span className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">Range</span>
           <span className="lm-badge lm-badge-gray">Full Range</span>
         </div>
-        <div className="relative h-6 border border-lm-terminal-gray bg-lm-terminal-darkgray overflow-hidden">
-          <div className="absolute inset-y-0 left-1/2 w-[2px] bg-white/70" />
-          <div className="absolute inset-0 flex items-center justify-between px-2 text-lm-terminal-lightgray">
-            <span>0</span>
-            <span className="text-white font-bold lm-mono">{fmtHumanPrice(current)} {quoteLabel}</span>
-            <span>∞</span>
-          </div>
-        </div>
+        <svg viewBox="0 0 320 90" className="w-full h-[90px] border border-lm-terminal-gray bg-lm-terminal-darkgray">
+          <rect x="0" y="0" width="320" height="90" fill="transparent" />
+          {/* grid */}
+          <line x1="40" y1="65" x2="308" y2="65" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+          <line x1="40" y1="20" x2="308" y2="20" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+          <line x1="40" y1="42" x2="308" y2="42" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+          {/* current marker (centered for full range) */}
+          <line x1="174" y1="18" x2="174" y2="68" stroke="rgba(255,255,255,0.75)" strokeWidth="2" />
+          {/* labels */}
+          <text x="40" y="82" fill="rgba(255,255,255,0.6)" fontSize="10">0</text>
+          <text x="174" y="82" fill="rgba(255,255,255,0.9)" fontSize="10" textAnchor="middle">{fmtHumanPrice(current)} {quoteLabel}</text>
+          <text x="308" y="82" fill="rgba(255,255,255,0.6)" fontSize="10" textAnchor="end">∞</text>
+        </svg>
       </div>
     );
   }
+
+  const inRange = current >= lower && current <= upper;
 
   // Log scale is much more readable for wide tick ranges.
   const lo = Math.log(lower);
   const hi = Math.log(upper);
   const cur = Math.log(current);
-  const t = hi > lo ? (cur - lo) / (hi - lo) : 0.5;
-  const pct = Math.max(0, Math.min(100, t * 100));
-  const inRange = current >= lower && current <= upper;
+  const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
+  const xNorm = (logP: number) => clamp01((logP - lo) / (hi - lo));
+
+  const W = 320;
+  const H = 90;
+  const padL = 40;
+  const padR = 12;
+  const top = 12;
+  const base = 65;
+  const innerW = W - padL - padR;
+
+  const xCur = padL + xNorm(cur) * innerW;
+  const xLo = padL;
+  const xHi = padL + innerW;
 
   return (
     <div className="bg-lm-black border border-lm-terminal-gray p-2 space-y-1 text-[10px]">
@@ -228,15 +246,29 @@ function RangeVisualization({
           {inRange ? "In Range" : "Out of Range"}
         </span>
       </div>
-      <div className="relative h-6 border border-lm-terminal-gray bg-lm-terminal-darkgray overflow-hidden">
-        <div className="absolute inset-0 bg-lm-terminal-darkgray" />
-        <div className="absolute inset-y-0 w-[2px] bg-white/70" style={{ left: `${pct}%` }} />
-        <div className="absolute inset-0 flex items-center justify-between px-2 text-lm-terminal-lightgray">
-          <span className="lm-mono">{fmtHumanPrice(lower)}</span>
-          <span className="text-white font-bold lm-mono">{fmtHumanPrice(current)} {quoteLabel}</span>
-          <span className="lm-mono">{fmtHumanPrice(upper)}</span>
-        </div>
-      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[90px] border border-lm-terminal-gray bg-lm-terminal-darkgray">
+        <rect x="0" y="0" width={W} height={H} fill="transparent" />
+
+        {/* grid */}
+        <line x1={padL} y1={base} x2={W - padR} y2={base} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+        <line x1={padL} y1={top} x2={W - padR} y2={top} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={padL} y1={(top + base) / 2} x2={W - padR} y2={(top + base) / 2} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={padL + innerW * 0.25} y1={top} x2={padL + innerW * 0.25} y2={base} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={padL + innerW * 0.5} y1={top} x2={padL + innerW * 0.5} y2={base} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={padL + innerW * 0.75} y1={top} x2={padL + innerW * 0.75} y2={base} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+
+        {/* shaded range band */}
+        <rect x={xLo} y={top + 1} width={xHi - xLo} height={base - top - 2} fill={inRange ? "rgba(0,255,0,0.10)" : "rgba(207,255,4,0.08)"} />
+
+        {/* current marker */}
+        <line x1={xCur} y1={top} x2={xCur} y2={base + 3} stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
+
+        {/* axis labels */}
+        <text x={padL} y={H - 10} fill="rgba(255,255,255,0.65)" fontSize="10" className="lm-mono">{fmtHumanPrice(lower)}</text>
+        <text x={xCur} y={H - 10} fill="rgba(255,255,255,0.95)" fontSize="10" textAnchor="middle" className="lm-mono">{fmtHumanPrice(current)}</text>
+        <text x={W - padR} y={H - 10} fill="rgba(255,255,255,0.65)" fontSize="10" textAnchor="end" className="lm-mono">{fmtHumanPrice(upper)}</text>
+        <text x={W - padR} y={12} fill="rgba(255,255,255,0.45)" fontSize="9" textAnchor="end">{quoteLabel}</text>
+      </svg>
     </div>
   );
 }
@@ -386,26 +418,51 @@ export function PoolsPanel() {
     })();
   }, [address, token0, token1, t0, t1]);
 
-  const rangeTicks = useMemo(() => {
-    if (!feeMeta) return null;
-    if (rangeMode === "full") return fullRangeTicks(feeMeta.tickSpacing);
-    try {
-      if (!s0 || !s1) return null;
-      const min = (minPrice || "").trim();
-      const max = (maxPrice || "").trim();
-      if (!min || !max) return null;
-      const pMin = Number(min);
-      const pMax = Number(max);
-      if (!Number.isFinite(pMin) || !Number.isFinite(pMax) || pMin <= 0 || pMax <= 0 || pMin >= pMax) return null;
-      const exp = s1.decimals - s0.decimals;
-      const rawMin = pMin * Math.pow(10, exp);
-      const rawMax = pMax * Math.pow(10, exp);
-      if (!Number.isFinite(rawMin) || !Number.isFinite(rawMax) || rawMin <= 0 || rawMax <= 0) return null;
-      const tickMin = Math.floor(Math.log(rawMin) / Math.log(1.0001));
-      const tickMax = Math.floor(Math.log(rawMax) / Math.log(1.0001));
-      return { tickLower: floorTick(tickMin, feeMeta.tickSpacing), tickUpper: ceilTick(tickMax, feeMeta.tickSpacing) };
-    } catch { return null; }
+  const rangeState = useMemo(() => {
+    if (!feeMeta) return { ticks: null as null | { tickLower: number; tickUpper: number }, error: "" };
+    if (rangeMode === "full") return { ticks: fullRangeTicks(feeMeta.tickSpacing), error: "" };
+    if (!s0 || !s1) return { ticks: null, error: "Select tokens first." };
+
+    const min = (minPrice || "").trim();
+    const max = (maxPrice || "").trim();
+    if (!min || !max) return { ticks: null, error: "" };
+
+    const pMin = Number(min);
+    const pMax = Number(max);
+    if (!Number.isFinite(pMin) || !Number.isFinite(pMax)) return { ticks: null, error: "Enter valid numbers for min/max price." };
+    if (pMin <= 0 || pMax <= 0) return { ticks: null, error: "Min/max price must be greater than 0." };
+    if (pMin >= pMax) return { ticks: null, error: "Min price must be lower than max price." };
+
+    // Convert human price (token1 per token0) into the raw price used by tick math.
+    const exp = s1.decimals - s0.decimals;
+    const pow = Math.pow(10, exp);
+    if (!Number.isFinite(pow) || pow <= 0) return { ticks: null, error: "Price scaling overflow. Try a smaller range." };
+
+    const rawMin = pMin * pow;
+    const rawMax = pMax * pow;
+    if (!Number.isFinite(rawMin) || !Number.isFinite(rawMax) || rawMin <= 0 || rawMax <= 0) {
+      return { ticks: null, error: "Price range is too large/small to compute ticks." };
+    }
+
+    const logBase = Math.log(1.0001);
+    const tMinRaw = Math.log(rawMin) / logBase;
+    const tMaxRaw = Math.log(rawMax) / logBase;
+    if (!Number.isFinite(tMinRaw) || !Number.isFinite(tMaxRaw)) {
+      return { ticks: null, error: "Price range is out of tick bounds." };
+    }
+
+    const tickMin = Math.floor(tMinRaw);
+    const tickMax = Math.floor(tMaxRaw);
+    const tickLower = floorTick(tickMin, feeMeta.tickSpacing);
+    const tickUpper = ceilTick(tickMax, feeMeta.tickSpacing);
+    if (!Number.isFinite(tickLower) || !Number.isFinite(tickUpper)) return { ticks: null, error: "Invalid tick calculation." };
+    if (tickLower >= tickUpper) return { ticks: null, error: "Range too narrow for this fee tier. Widen the range." };
+
+    return { ticks: { tickLower, tickUpper }, error: "" };
   }, [feeMeta, maxPrice, minPrice, rangeMode, s0, s1]);
+
+  const rangeTicks = rangeState.ticks;
+  const rangeError = rangeState.error;
 
   /* Human-readable price range */
   const priceRange = useMemo(() => {
@@ -918,15 +975,18 @@ export function PoolsPanel() {
 
         {/* Custom range inputs */}
         {rangeMode === "custom" && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
               <div className="text-lm-terminal-lightgray text-xs">Min Price ({s1?.symbol || "B"}/{s0?.symbol || "A"})</div>
               <Input value={minPrice} onValueChange={setMinPrice} placeholder="0.0005" />
-            </div>
-            <div className="space-y-1">
+              </div>
+              <div className="space-y-1">
               <div className="text-lm-terminal-lightgray text-xs">Max Price ({s1?.symbol || "B"}/{s0?.symbol || "A"})</div>
               <Input value={maxPrice} onValueChange={setMaxPrice} placeholder="0.0020" />
+              </div>
             </div>
+            {rangeError ? <div className="text-lm-red text-[10px]">{rangeError}</div> : null}
           </div>
         )}
 
