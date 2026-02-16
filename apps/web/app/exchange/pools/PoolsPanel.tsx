@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Address, formatUnits, parseUnits } from "viem";
+import { Address, encodeFunctionData, formatUnits, parseUnits } from "viem";
 import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
 import { fetchWhitelistedTokens, ListedToken } from "../../lib/registry";
@@ -27,6 +27,8 @@ const SLIPPAGE_OPTIONS = [
 ];
 
 /* ── Math utilities ── */
+
+const MAX_UINT160 = (2n ** 160n) - 1n;
 
 function fullRangeTicks(tickSpacing: number) {
   const MIN_TICK = -887272;
@@ -169,6 +171,76 @@ function sqrtBigInt(n: bigint): bigint {
   return x0;
 }
 
+function toInputString(x: bigint, decimals: number): string {
+  // formatUnits never uses scientific notation; trim trailing zeros for nicer UX.
+  const s = formatUnits(x, decimals);
+  if (!s.includes(".")) return s;
+  return s.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
+}
+
+function RangeVisualization({
+  mode,
+  lower,
+  upper,
+  current,
+  quoteLabel
+}: {
+  mode: "full" | "custom";
+  lower: number | null;
+  upper: number | null;
+  current: number | null;
+  quoteLabel: string;
+}) {
+  if (!current || !Number.isFinite(current) || current <= 0) return null;
+
+  if (mode === "full" || !lower || !upper || !Number.isFinite(lower) || !Number.isFinite(upper) || lower <= 0 || upper <= 0 || lower >= upper) {
+    return (
+      <div className="bg-lm-black border border-lm-terminal-gray p-2 space-y-1 text-[10px]">
+        <div className="flex items-center justify-between">
+          <span className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">Range</span>
+          <span className="lm-badge lm-badge-gray">Full Range</span>
+        </div>
+        <div className="relative h-6 border border-lm-terminal-gray bg-lm-terminal-darkgray overflow-hidden">
+          <div className="absolute inset-y-0 left-1/2 w-[2px] bg-white/70" />
+          <div className="absolute inset-0 flex items-center justify-between px-2 text-lm-terminal-lightgray">
+            <span>0</span>
+            <span className="text-white font-bold lm-mono">{fmtHumanPrice(current)} {quoteLabel}</span>
+            <span>∞</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Log scale is much more readable for wide tick ranges.
+  const lo = Math.log(lower);
+  const hi = Math.log(upper);
+  const cur = Math.log(current);
+  const t = hi > lo ? (cur - lo) / (hi - lo) : 0.5;
+  const pct = Math.max(0, Math.min(100, t * 100));
+  const inRange = current >= lower && current <= upper;
+
+  return (
+    <div className="bg-lm-black border border-lm-terminal-gray p-2 space-y-1 text-[10px]">
+      <div className="flex items-center justify-between">
+        <span className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">Range</span>
+        <span className={inRange ? "lm-badge lm-badge-green" : "lm-badge lm-badge-orange"}>
+          {inRange ? "In Range" : "Out of Range"}
+        </span>
+      </div>
+      <div className="relative h-6 border border-lm-terminal-gray bg-lm-terminal-darkgray overflow-hidden">
+        <div className="absolute inset-0 bg-lm-terminal-darkgray" />
+        <div className="absolute inset-y-0 w-[2px] bg-white/70" style={{ left: `${pct}%` }} />
+        <div className="absolute inset-0 flex items-center justify-between px-2 text-lm-terminal-lightgray">
+          <span className="lm-mono">{fmtHumanPrice(lower)}</span>
+          <span className="text-white font-bold lm-mono">{fmtHumanPrice(current)} {quoteLabel}</span>
+          <span className="lm-mono">{fmtHumanPrice(upper)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function short(a: string) {
   return a.slice(0, 6) + "..." + a.slice(-4);
 }
@@ -201,6 +273,8 @@ export function PoolsPanel() {
   const [sqrtPriceX96Override, setSqrtPriceX96Override] = useState<string>("");
   const [amt0, setAmt0] = useState<string>("");
   const [amt1, setAmt1] = useState<string>("");
+  const [autoAdjust, setAutoAdjust] = useState(true);
+  const [lastEdited, setLastEdited] = useState<"amt0" | "amt1">("amt0");
   const [slippageBps, setSlippageBps] = useState<number>(100);
   const [rangeMode, setRangeMode] = useState<"full" | "custom">("full");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -236,8 +310,12 @@ export function PoolsPanel() {
       const pScaled = scalePriceHumanToRawScaled(pHumanScaled, s0.decimals, s1.decimals);
       if (pScaled <= 0n) return "";
       const Q96 = 2n ** 96n;
-      const x = (pScaled * (Q96 * Q96)) / 10n ** 18n;
-      return sqrtBigInt(x).toString();
+      const Q192 = Q96 * Q96;
+      const x = (pScaled * Q192) / 10n ** 18n;
+      if (x <= 0n) return "";
+      const sp = sqrtBigInt(x);
+      if (sp <= 0n || sp > MAX_UINT160) return "";
+      return sp.toString();
     } catch { return ""; }
   }, [initialPrice1Per0, s0, s1, sorted]);
 
@@ -252,43 +330,42 @@ export function PoolsPanel() {
   const [curSqrt, setCurSqrt] = useState<bigint | null>(null);
   const [curPriceHuman, setCurPriceHuman] = useState<string>("");
 
-  useEffect(() => {
-    async function loadPool() {
-      if (!config.uniFactory || !sorted || !feeMeta || !s0 || !s1) {
+  const refreshPool = useCallback(async () => {
+    if (!config.uniFactory || !sorted || !feeMeta || !s0 || !s1) {
+      setPoolAddr(""); setCurTick(null); setCurSqrt(null); setCurPriceHuman("");
+      return;
+    }
+    try {
+      const pool = (await publicClient.readContract({
+        address: config.uniFactory, abi: UniswapV3FactoryAbi, functionName: "getPool",
+        args: [sorted.token0, sorted.token1, fee]
+      })) as Address;
+      if (!pool || pool === ("0x0000000000000000000000000000000000000000" as Address)) {
         setPoolAddr(""); setCurTick(null); setCurSqrt(null); setCurPriceHuman("");
         return;
       }
-      try {
-        const pool = (await publicClient.readContract({
-          address: config.uniFactory, abi: UniswapV3FactoryAbi, functionName: "getPool",
-          args: [sorted.token0, sorted.token1, fee]
-        })) as Address;
-        if (!pool || pool === ("0x0000000000000000000000000000000000000000" as Address)) {
-          setPoolAddr(""); setCurTick(null); setCurSqrt(null); setCurPriceHuman("");
-          return;
-        }
-        setPoolAddr(pool);
-        const slot0 = (await publicClient.readContract({
-          address: pool, abi: UniswapV3PoolAbi, functionName: "slot0"
-        })) as unknown as readonly [bigint, number, number, number, number, number, boolean];
-        const sqrt = slot0[0];
-        const tick = slot0[1];
-        setCurSqrt(sqrt);
-        setCurTick(tick);
-        const raw = priceFromSqrtX96(sqrt);
-        const dec0 = BigInt(s0.decimals);
-        const dec1 = BigInt(s1.decimals);
-        let num = raw.num;
-        let den = raw.den;
-        if (dec0 > dec1) num = num * 10n ** (dec0 - dec1);
-        if (dec1 > dec0) den = den * 10n ** (dec1 - dec0);
-        setCurPriceHuman(formatRatio(num, den, 8));
-      } catch {
-        setPoolAddr(""); setCurTick(null); setCurSqrt(null); setCurPriceHuman("");
-      }
+      setPoolAddr(pool);
+      const slot0 = (await publicClient.readContract({
+        address: pool, abi: UniswapV3PoolAbi, functionName: "slot0"
+      })) as unknown as readonly [bigint, number, number, number, number, number, boolean];
+      const sqrt = slot0[0];
+      const tick = slot0[1];
+      setCurSqrt(sqrt);
+      setCurTick(tick);
+      const raw = priceFromSqrtX96(sqrt);
+      const dec0 = BigInt(s0.decimals);
+      const dec1 = BigInt(s1.decimals);
+      let num = raw.num;
+      let den = raw.den;
+      if (dec0 > dec1) num = num * 10n ** (dec0 - dec1);
+      if (dec1 > dec0) den = den * 10n ** (dec1 - dec0);
+      setCurPriceHuman(formatRatio(num, den, 8));
+    } catch {
+      setPoolAddr(""); setCurTick(null); setCurSqrt(null); setCurPriceHuman("");
     }
-    loadPool().catch(() => {});
   }, [fee, feeMeta, s0, s1, sorted]);
+
+  useEffect(() => { refreshPool().catch(() => {}); }, [refreshPool]);
 
   /* ── Balances ── */
   useEffect(() => {
@@ -338,33 +415,149 @@ export function PoolsPanel() {
     return { lower, upper };
   }, [rangeTicks, s0, s1]);
 
+  const currentPriceNum = useMemo(() => {
+    try {
+      if (curTick !== null && s0 && s1) {
+        const p = tickToPrice(curTick, s0.decimals, s1.decimals);
+        return Number.isFinite(p) && p > 0 ? p : null;
+      }
+      const n = Number((initialPrice1Per0 || "").trim());
+      return Number.isFinite(n) && n > 0 ? n : null;
+    } catch {
+      return null;
+    }
+  }, [curTick, initialPrice1Per0, s0, s1]);
+
+  const effectiveSqrtP = useMemo(() => {
+    // Prefer on-chain slot0 price when pool exists.
+    if (poolAddr && curSqrt) return curSqrt;
+    // If pool doesn't exist yet, we can still preview based on the initialization price.
+    try {
+      const sp = BigInt((sqrtPriceX96 || "").trim() || "0");
+      if (sp <= 0n || sp > MAX_UINT160) return null;
+      return sp;
+    } catch {
+      return null;
+    }
+  }, [curSqrt, poolAddr, sqrtPriceX96]);
+
   const rangePreview = useMemo(() => {
-    if (!rangeTicks || !feeMeta || !t0 || !t1 || !s0 || !s1 || !curSqrt || curTick === null) return null;
+    if (!rangeTicks || !t0 || !t1 || !s0 || !s1 || !effectiveSqrtP) return null;
     try {
       const sqrtA = sqrtRatioAtTick(rangeTicks.tickLower);
       const sqrtB = sqrtRatioAtTick(rangeTicks.tickUpper);
       const a0In = parseUnits(amt0 || "0", t0.decimals);
       const a1In = parseUnits(amt1 || "0", t1.decimals);
-      if (a0In === 0n && a1In === 0n) return { used0: 0n, used1: 0n, note: "Enter amounts to see preview." };
+      if (a0In === 0n && a1In === 0n) {
+        return { used0: 0n, used1: 0n, desired0: 0n, desired1: 0n, leftover0: 0n, leftover1: 0n, mode: "unknown" as const, note: "Enter amounts to see preview." };
+      }
       if (!sorted) return null;
       const amount0Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a0In : a1In;
       const amount1Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a1In : a0In;
       let L: bigint;
-      if (curSqrt <= (sqrtA < sqrtB ? sqrtA : sqrtB)) {
+      const sqrtP = effectiveSqrtP;
+      const lo = sqrtA < sqrtB ? sqrtA : sqrtB;
+      const hi = sqrtA > sqrtB ? sqrtA : sqrtB;
+      let mode: "below" | "in" | "above";
+      if (sqrtP <= lo) {
+        mode = "below";
         L = liqForAmount0(sqrtA, sqrtB, amount0Desired);
-      } else if (curSqrt >= (sqrtA > sqrtB ? sqrtA : sqrtB)) {
+      } else if (sqrtP >= hi) {
+        mode = "above";
         L = liqForAmount1(sqrtA, sqrtB, amount1Desired);
       } else {
-        const L0 = liqForAmount0(curSqrt, sqrtB, amount0Desired);
-        const L1 = liqForAmount1(sqrtA, curSqrt, amount1Desired);
+        mode = "in";
+        const L0 = liqForAmount0(sqrtP, sqrtB, amount0Desired);
+        const L1 = liqForAmount1(sqrtA, sqrtP, amount1Desired);
         L = L0 < L1 ? L0 : L1;
       }
-      const { amount0: used0, amount1: used1 } = amountsForLiquidity(curSqrt, sqrtA, sqrtB, L);
-      return { used0, used1, note: "" };
+      const { amount0: used0, amount1: used1 } = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L);
+      const leftover0 = amount0Desired > used0 ? amount0Desired - used0 : 0n;
+      const leftover1 = amount1Desired > used1 ? amount1Desired - used1 : 0n;
+      return { used0, used1, desired0: amount0Desired, desired1: amount1Desired, leftover0, leftover1, mode, note: "" };
     } catch (e: any) {
-      return { used0: 0n, used1: 0n, note: String(e?.message || e) };
+      return { used0: 0n, used1: 0n, desired0: 0n, desired1: 0n, leftover0: 0n, leftover1: 0n, mode: "unknown" as const, note: String(e?.message || e) };
     }
-  }, [amt0, amt1, curSqrt, curTick, feeMeta, rangeTicks, s0, s1, sorted, t0, t1, token0]);
+  }, [amt0, amt1, effectiveSqrtP, rangeTicks, s0, s1, sorted, t0, t1, token0]);
+
+  // Auto-adjust the other amount for the selected range at the current price.
+  useEffect(() => {
+    if (!autoAdjust) return;
+    if (!sorted || !t0 || !t1 || !rangeTicks || !effectiveSqrtP) return;
+    const edited = lastEdited;
+    const editedStr = edited === "amt0" ? (amt0 || "").trim() : (amt1 || "").trim();
+    const otherStr = edited === "amt0" ? (amt1 || "").trim() : (amt0 || "").trim();
+    const editedTokenAddr = edited === "amt0" ? token0 : token1;
+    const otherTokenAddr = edited === "amt0" ? token1 : token0;
+    const editedToken = edited === "amt0" ? t0 : t1;
+    const otherToken = edited === "amt0" ? t1 : t0;
+    if (!editedTokenAddr || !otherTokenAddr) return;
+    if (!editedStr) {
+      // If user clears the edited field, clear the auto-filled companion.
+      if (otherStr) {
+        if (edited === "amt0") setAmt1("");
+        else setAmt0("");
+      }
+      return;
+    }
+
+    let editedAmt: bigint;
+    try {
+      editedAmt = parseUnits(editedStr, editedToken.decimals);
+    } catch {
+      return;
+    }
+
+    const sqrtA = sqrtRatioAtTick(rangeTicks.tickLower);
+    const sqrtB = sqrtRatioAtTick(rangeTicks.tickUpper);
+    const sqrtP = effectiveSqrtP;
+
+    const editedIsSorted0 = sorted.token0.toLowerCase() === (editedTokenAddr as string).toLowerCase();
+    const editedIsSorted1 = sorted.token1.toLowerCase() === (editedTokenAddr as string).toLowerCase();
+    if (!editedIsSorted0 && !editedIsSorted1) return;
+
+    const lo = sqrtA < sqrtB ? sqrtA : sqrtB;
+    const hi = sqrtA > sqrtB ? sqrtA : sqrtB;
+
+    let reqOtherSorted: bigint = 0n;
+    if (editedIsSorted0) {
+      if (sqrtP <= lo) {
+        // Below range: single-sided token0.
+        reqOtherSorted = 0n;
+      } else if (sqrtP >= hi) {
+        // Above range: single-sided token1; token0 does not contribute to liquidity at this price.
+        reqOtherSorted = 0n;
+      } else {
+        const L = liqForAmount0(sqrtP, sqrtB, editedAmt);
+        reqOtherSorted = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L).amount1;
+      }
+    } else if (editedIsSorted1) {
+      if (sqrtP >= hi) {
+        // Above range: single-sided token1.
+        reqOtherSorted = 0n;
+      } else if (sqrtP <= lo) {
+        // Below range: single-sided token0; token1 does not contribute to liquidity at this price.
+        reqOtherSorted = 0n;
+      } else {
+        const L = liqForAmount1(sqrtA, sqrtP, editedAmt);
+        reqOtherSorted = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L).amount0;
+      }
+    }
+
+    // Map required companion amount back into UI token order.
+    const reqOtherUi = (() => {
+      const otherIsSorted0 = sorted.token0.toLowerCase() === (otherTokenAddr as string).toLowerCase();
+      const raw = otherIsSorted0 ? reqOtherSorted : reqOtherSorted; // reqOtherSorted already corresponds to the other side.
+      return toInputString(raw, otherToken.decimals);
+    })();
+
+    if (edited === "amt0") {
+      if (reqOtherUi !== (amt1 || "")) setAmt1(reqOtherUi);
+    } else {
+      if (reqOtherUi !== (amt0 || "")) setAmt0(reqOtherUi);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAdjust, lastEdited, amt0, amt1, sorted, t0, t1, rangeTicks, effectiveSqrtP]);
 
   useEffect(() => {
     fetchWhitelistedTokens()
@@ -426,8 +619,14 @@ export function PoolsPanel() {
     setBusy(true);
     try {
       await requireCorrectChain();
-      const sp = BigInt(sqrtPriceX96 || "0");
-      if (sp === 0n) throw new Error("Set an initial price first (enter a price in the field above).");
+      let sp: bigint;
+      try {
+        sp = BigInt((sqrtPriceX96 || "").trim() || "0");
+      } catch {
+        throw new Error("Initial price is invalid. Enter a valid number.");
+      }
+      if (sp <= 0n) throw new Error("Set an initial price first (enter a price in the field above).");
+      if (sp > MAX_UINT160) throw new Error("Initial price is out of range. Try a smaller price.");
       if (!walletClient) throw new Error("No wallet client");
       setStatus(`Creating ${sym0}/${sym1} pool (${feeMeta?.label} fee)...`); setStatusType("info");
       const hash = await walletClient.writeContract({
@@ -463,31 +662,97 @@ export function PoolsPanel() {
       if (a0 === 0n && a1 === 0n) throw new Error("Enter amount for at least one token");
       if (!walletClient) throw new Error("No wallet client");
 
-      await ensureAllowance(address, config.positionManager, token0, a0);
-      await ensureAllowance(address, config.positionManager, token1, a1);
-
       const { tickLower, tickUpper } = rangeTicks;
       const amount0Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a0 : a1;
       const amount1Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a1 : a0;
+
+      const sqrtP = effectiveSqrtP;
+      if (!sqrtP) {
+        if (!poolAddr) throw new Error("No pool found. Set an initial price and create the pool first.");
+        throw new Error("Loading pool price. Try again in a moment.");
+      }
+
+      // Compute expected amounts used at this price/range. This prevents mint reverts when one side is unused (single-sided ranges).
+      const sqrtA = sqrtRatioAtTick(tickLower);
+      const sqrtB = sqrtRatioAtTick(tickUpper);
+      let L: bigint;
+      if (sqrtP <= (sqrtA < sqrtB ? sqrtA : sqrtB)) {
+        L = liqForAmount0(sqrtA, sqrtB, amount0Desired);
+      } else if (sqrtP >= (sqrtA > sqrtB ? sqrtA : sqrtB)) {
+        L = liqForAmount1(sqrtA, sqrtB, amount1Desired);
+      } else {
+        const L0 = liqForAmount0(sqrtP, sqrtB, amount0Desired);
+        const L1 = liqForAmount1(sqrtA, sqrtP, amount1Desired);
+        L = L0 < L1 ? L0 : L1;
+      }
+      const used = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L);
+
+      await ensureAllowance(address, config.positionManager, token0, a0);
+      await ensureAllowance(address, config.positionManager, token1, a1);
+
       const slip = BigInt(Math.max(0, Math.min(3000, slippageBps)));
-      const amount0Min = (amount0Desired * (10_000n - slip)) / 10_000n;
-      const amount1Min = (amount1Desired * (10_000n - slip)) / 10_000n;
+      const amount0Min = (used.amount0 * (10_000n - slip)) / 10_000n;
+      const amount1Min = (used.amount1 * (10_000n - slip)) / 10_000n;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 10);
 
-      setStatus(`Minting LP: ${amt0 || "0"} ${t0.symbol} + ${amt1 || "0"} ${t1.symbol}...`); setStatusType("info");
-      const hash = await walletClient.writeContract({
-        address: config.positionManager, abi: NonfungiblePositionManagerAbi, functionName: "mint",
-        args: [{
-          token0: sorted.token0, token1: sorted.token1, fee, tickLower, tickUpper,
-          amount0Desired, amount1Desired, amount0Min, amount1Min,
-          recipient: address, deadline
-        }],
-        value: 0n, chain: robinhoodTestnet, account: address
-      });
-      setStatus("Confirming on-chain...");
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      if (receipt.status === "success") { setStatus(`LP position minted! ${t0.symbol}/${t1.symbol} liquidity added. Check the Positions tab.`); setStatusType("success"); }
-      else { setStatus("Mint transaction reverted. Check your balances and price range."); setStatusType("error"); }
+      if (!poolAddr) {
+        // First mint for a pair is often easiest as a single tx: create+initialize+mint via multicall.
+        let spInit: bigint;
+        try {
+          spInit = BigInt((sqrtPriceX96 || "").trim() || "0");
+        } catch {
+          throw new Error("Set an initial price to create the pool first.");
+        }
+        if (spInit <= 0n || spInit > MAX_UINT160) throw new Error("Initial price is invalid (sqrtPriceX96 out of range).");
+
+        setStatus(`Creating pool + minting LP...`); setStatusType("info");
+        const data0 = encodeFunctionData({
+          abi: NonfungiblePositionManagerAbi,
+          functionName: "createAndInitializePoolIfNecessary",
+          args: [sorted.token0, sorted.token1, fee, spInit]
+        });
+        const data1 = encodeFunctionData({
+          abi: NonfungiblePositionManagerAbi,
+          functionName: "mint",
+          args: [{
+            token0: sorted.token0, token1: sorted.token1, fee, tickLower, tickUpper,
+            amount0Desired, amount1Desired, amount0Min, amount1Min,
+            recipient: address, deadline
+          }]
+        });
+        const hash = await walletClient.writeContract({
+          address: config.positionManager,
+          abi: NonfungiblePositionManagerAbi,
+          functionName: "multicall",
+          args: [[data0, data1]],
+          value: 0n,
+          chain: robinhoodTestnet,
+          account: address
+        });
+        setStatus("Confirming on-chain...");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status === "success") {
+          setStatus(`Pool created and LP position minted! Check the Positions tab.`); setStatusType("success");
+          await refreshPool();
+        } else {
+          setStatus("Transaction reverted. Check your balances, range, and initial price."); setStatusType("error");
+        }
+      } else {
+        setStatus(`Minting LP: ${amt0 || "0"} ${t0.symbol} + ${amt1 || "0"} ${t1.symbol}...`); setStatusType("info");
+        const hash = await walletClient.writeContract({
+          address: config.positionManager, abi: NonfungiblePositionManagerAbi, functionName: "mint",
+          args: [{
+            token0: sorted.token0, token1: sorted.token1, fee, tickLower, tickUpper,
+            amount0Desired, amount1Desired, amount0Min, amount1Min,
+            recipient: address, deadline
+          }],
+          value: 0n, chain: robinhoodTestnet, account: address
+        });
+        setStatus("Confirming on-chain...");
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status === "success") { setStatus(`LP position minted! ${t0.symbol}/${t1.symbol} liquidity added. Check the Positions tab.`); setStatusType("success"); }
+        else { setStatus("Mint transaction reverted. Check your balances and price range."); setStatusType("error"); }
+      }
     } catch (e: any) {
       const msg = String(e?.shortMessage || e?.message || e);
       if (msg.includes("user rejected") || msg.includes("User denied")) {
@@ -602,6 +867,11 @@ export function PoolsPanel() {
               Initial Price ({s1?.symbol || "B"} per {s0?.symbol || "A"})
             </div>
             <Input value={initialPrice1Per0} onValueChange={setInitialPrice1Per0} placeholder="e.g. 0.001" />
+            {(initialPrice1Per0 || "").trim() && !sqrtPriceX96 ? (
+              <div className="text-lm-red text-[10px]">
+                Invalid initial price. Enter a positive number.
+              </div>
+            ) : null}
           </div>
           <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="text-lm-terminal-lightgray text-[10px] hover:text-lm-orange transition-colors">
             {showAdvanced ? "▾ Hide developer settings" : "▸ Developer settings"}
@@ -623,6 +893,11 @@ export function PoolsPanel() {
       {/* ── Add Liquidity ── */}
       <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-3 space-y-3">
         <div className="text-lm-terminal-lightgray text-[10px] lm-upper font-bold tracking-wider">Add Liquidity</div>
+        {!poolAddr ? (
+          <div className="text-[10px] text-lm-terminal-lightgray">
+            No pool found for this pair + fee. Set an initial price above and we&apos;ll create + initialize + mint in one transaction.
+          </div>
+        ) : null}
 
         {/* Range mode */}
         <div className="space-y-1.5">
@@ -671,31 +946,53 @@ export function PoolsPanel() {
           </div>
         )}
 
+        {/* Range visualization */}
+        {s0 && s1 ? (
+          <RangeVisualization
+            mode={rangeMode}
+            lower={rangeMode === "custom" && priceRange ? priceRange.lower : null}
+            upper={rangeMode === "custom" && priceRange ? priceRange.upper : null}
+            current={currentPriceNum}
+            quoteLabel={`${s1.symbol}/${s0.symbol}`}
+          />
+        ) : null}
+
         {/* Token amounts */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <div className="text-lm-terminal-lightgray text-xs">{t0?.symbol || "Token A"}</div>
               {bal0 && Number(bal0) > 0 && (
-                <button type="button" onClick={() => setAmt0(bal0)} className="text-[10px] text-lm-orange hover:underline">
+                <button type="button" onClick={() => { setLastEdited("amt0"); setAmt0(bal0); }} className="text-[10px] text-lm-orange hover:underline">
                   MAX
                 </button>
               )}
             </div>
-            <Input value={amt0} onValueChange={setAmt0} placeholder="0.0" />
+            <Input value={amt0} onValueChange={(v) => { setLastEdited("amt0"); setAmt0(v); }} placeholder="0.0" />
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <div className="text-lm-terminal-lightgray text-xs">{t1?.symbol || "Token B"}</div>
               {bal1 && Number(bal1) > 0 && (
-                <button type="button" onClick={() => setAmt1(bal1)} className="text-[10px] text-lm-orange hover:underline">
+                <button type="button" onClick={() => { setLastEdited("amt1"); setAmt1(bal1); }} className="text-[10px] text-lm-orange hover:underline">
                   MAX
                 </button>
               )}
             </div>
-            <Input value={amt1} onValueChange={setAmt1} placeholder="0.0" />
+            <Input value={amt1} onValueChange={(v) => { setLastEdited("amt1"); setAmt1(v); }} placeholder="0.0" />
           </div>
         </div>
+
+        {/* Auto-adjust toggle */}
+        <label className="flex items-center gap-2 text-[10px] text-lm-terminal-lightgray select-none">
+          <input
+            type="checkbox"
+            checked={autoAdjust}
+            onChange={(e) => setAutoAdjust(e.target.checked)}
+            className="accent-lm-orange"
+          />
+          Auto-adjust the other token to match the selected range
+        </label>
 
         {/* Slippage */}
         <div className="space-y-1">
@@ -715,26 +1012,56 @@ export function PoolsPanel() {
         {/* Liquidity preview */}
         {rangePreview && (
           <div className="bg-lm-black border border-lm-terminal-gray p-2.5 space-y-1.5 text-[10px]">
-            <div className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">Deposit Preview</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">Deposit Preview</div>
+              {rangePreview.mode === "in" ? (
+                <span className="lm-badge lm-badge-green">In Range</span>
+              ) : rangePreview.mode === "below" || rangePreview.mode === "above" ? (
+                <span className="lm-badge lm-badge-orange">Single-Sided</span>
+              ) : null}
+            </div>
             {rangePreview.note ? (
               <div className="text-lm-terminal-lightgray">{rangePreview.note}</div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                {rangePreview.mode === "below" && s0 && s1 ? (
+                  <div className="text-lm-terminal-lightgray">
+                    Current price is below your range. This deposit uses {s0.symbol} only.
+                  </div>
+                ) : null}
+                {rangePreview.mode === "above" && s0 && s1 ? (
+                  <div className="text-lm-terminal-lightgray">
+                    Current price is above your range. This deposit uses {s1.symbol} only.
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between">
                   <span className="text-lm-terminal-lightgray">{s0?.symbol}</span>
-                  <span className="text-white lm-mono font-bold">{s0 ? fmtBal(formatUnits(rangePreview.used0, s0.decimals)) : "0"}</span>
+                  <span className="text-white lm-mono font-bold">
+                    Used {s0 ? fmtBal(formatUnits(rangePreview.used0, s0.decimals)) : "0"}
+                    {s0 ? ` · Leftover ${fmtBal(formatUnits(rangePreview.leftover0, s0.decimals))}` : ""}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-lm-terminal-lightgray">{s1?.symbol}</span>
-                  <span className="text-white lm-mono font-bold">{s1 ? fmtBal(formatUnits(rangePreview.used1, s1.decimals)) : "0"}</span>
+                  <span className="text-white lm-mono font-bold">
+                    Used {s1 ? fmtBal(formatUnits(rangePreview.used1, s1.decimals)) : "0"}
+                    {s1 ? ` · Leftover ${fmtBal(formatUnits(rangePreview.leftover1, s1.decimals))}` : ""}
+                  </span>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        <Button onClick={address ? addLiquidity : connect} loading={busy} disabled={busy || (!!address && !rangeTicks)} variant="primary" size="lg" className="w-full">
-          {busy ? "Processing..." : !address ? "Connect Wallet" : "Add Liquidity"}
+        <Button
+          onClick={address ? addLiquidity : connect}
+          loading={busy}
+          disabled={busy || (!!address && (!rangeTicks || (!poolAddr && !effectiveSqrtP)))}
+          variant="primary"
+          size="lg"
+          className="w-full"
+        >
+          {busy ? "Processing..." : !address ? "Connect Wallet" : !poolAddr ? "Create + Add Liquidity" : "Add Liquidity"}
         </Button>
       </div>
 

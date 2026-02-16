@@ -296,7 +296,7 @@ export default function Page() {
                   transform: `translate(${parallax.offset.x * 0.5}px, ${parallax.offset.y * 0.5}px)`,
                 }}
               >
-                <span className="text-lm-orange text-5xl font-bold lm-glow">S</span>
+                {/* Intentionally empty: keep the badge shape without a letter. */}
               </div>
             </div>
 
