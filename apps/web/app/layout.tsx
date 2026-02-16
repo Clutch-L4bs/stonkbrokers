@@ -5,7 +5,15 @@ import { AppShell } from "./components/AppShell";
 
 export const metadata: Metadata = {
   title: "Stonk Brokers",
-  description: "Stonk Brokers on Robinhood Chain"
+  description: "Stonk Brokers on Robinhood Chain",
+  icons: {
+    icon: [
+      { url: "/favicon.png" }
+    ],
+    apple: [
+      { url: "/favicon.png" }
+    ]
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

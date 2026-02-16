@@ -258,15 +258,21 @@ export function Sidebar() {
         )}
       >
         {/* ── Brand ── */}
-        <div className="flex items-center gap-3 px-3 h-14 shrink-0 border-b border-lm-terminal-gray">
-          <div className="w-7 h-7 border border-lm-orange flex items-center justify-center shrink-0">
-            <span className="text-lm-orange text-sm font-bold leading-none">S</span>
+        <Link href="/" className="flex items-center gap-3 px-3 h-14 shrink-0 border-b border-lm-terminal-gray hover:bg-lm-black/20 transition-colors">
+          <div className="w-7 h-7 border border-lm-orange flex items-center justify-center shrink-0 bg-lm-black">
+            <img
+              src="/stonk-broker.png"
+              alt="Stonk Brokers"
+              className="w-6 h-6 object-contain"
+              loading="eager"
+              decoding="async"
+            />
           </div>
           <SideLabel>
             <span className="text-lm-orange">STONK</span>{" "}
             <span className="text-white">BROKERS</span>
           </SideLabel>
-        </div>
+        </Link>
 
         {/* ── Chain status ── */}
         <div className="flex items-center gap-3 px-4 h-9 shrink-0 border-b border-lm-terminal-gray">
