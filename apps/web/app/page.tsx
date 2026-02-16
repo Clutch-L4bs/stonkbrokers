@@ -285,21 +285,6 @@ export default function Page() {
             <div className="absolute bottom-0 left-[15%] w-[400px] h-[300px] bg-lm-green/[0.025] rounded-full blur-[100px] pointer-events-none lm-orb-2" />
             <div className="absolute top-[30%] right-[10%] w-[250px] h-[250px] bg-lm-orange/[0.02] rounded-full blur-[80px] pointer-events-none lm-orb-3" />
 
-            {/* Brand mark with breathing glow + parallax */}
-            <div
-              className={`relative flex justify-center mb-8 transition-all duration-1000 ${heroObs.visible ? "opacity-100 scale-100" : "opacity-0 scale-75"}`}
-            >
-              <div
-                className="w-18 h-18 md:w-22 md:h-22 border-2 border-lm-orange flex items-center justify-center lm-brand-breathe"
-                style={{
-                  width: 80, height: 80,
-                  transform: `translate(${parallax.offset.x * 0.5}px, ${parallax.offset.y * 0.5}px)`,
-                }}
-              >
-                {/* Intentionally empty: keep the badge shape without a letter. */}
-              </div>
-            </div>
-
             {/* Tagline — staggered word reveal */}
             <h1
               className={`relative text-white font-bold text-3xl md:text-5xl lg:text-6xl lm-upper leading-tight max-w-4xl mx-auto transition-all duration-1000 delay-200 ${heroObs.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
