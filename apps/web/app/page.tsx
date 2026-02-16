@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Address, formatEther } from "viem";
 import { TerminalShell } from "./components/Terminal";
-import { ConfigStatus } from "./components/ConfigStatus";
+
 import { publicClient } from "./providers";
 import { config } from "./lib/config";
 import { ERC721EnumerableAbi, StonkExpandedNftMintAbi } from "./lib/abis";
@@ -265,9 +265,8 @@ export default function Page() {
 
   return (
     <TerminalShell
-      title="Stonk Brokers"
+      title="The Stonk Exchange"
       subtitle="DeFi suite on Robinhood Chain"
-      right={<ConfigStatus />}
     >
       <div className="space-y-0 overflow-hidden">
 

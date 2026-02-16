@@ -1,0 +1,10 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/launcher/page": "/launcher",
+  "/launcher/[launch]/page": "/launcher/[launch]",
+  "/marketplace/page": "/marketplace",
+  "/nft/page": "/nft",
+  "/options/page": "/options",
+  "/page": "/",
+  "/exchange/page": "/exchange"
+}
