@@ -1120,7 +1120,7 @@ export function LauncherBootstrap({ LauncherPanel }: { LauncherPanel: React.Comp
         title="Stonk Launcher"
         hint="Launch meme coins with instant DEX liquidity, fee splitting, and staking rewards."
         right={(
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <TerminalTabs tabs={tabs} active={active} onChange={setActive} />
             <Button variant="ghost" size="sm" onClick={() => setInfoOpen(true)} aria-label="Launcher information">
               Info

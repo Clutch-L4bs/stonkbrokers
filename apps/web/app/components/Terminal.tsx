@@ -29,7 +29,12 @@ export function TerminalShell({
               </div>
               {subtitle ? <div className="text-lm-gray text-sm mt-1.5">{subtitle}</div> : null}
             </div>
-            {right ? <div className="shrink-0">{right}</div> : null}
+            {/* On mobile, stack/wrap "right" controls to avoid overflow. */}
+            {right ? (
+              <div className="w-full sm:w-auto max-w-full min-w-0 flex justify-start sm:justify-end">
+                {right}
+              </div>
+            ) : null}
           </div>
         </div>
         {children}
@@ -63,7 +68,12 @@ export function Panel({
           <div className="lm-panel-title">{title}</div>
           {hint ? <div className="lm-panel-hint">{hint}</div> : null}
         </div>
-        {right ? <div className="shrink-0">{right}</div> : null}
+        {/* On mobile, let header controls wrap within panel border. */}
+        {right ? (
+          <div className="w-full sm:w-auto max-w-full min-w-0 flex justify-start sm:justify-end">
+            {right}
+          </div>
+        ) : null}
       </div>
       <div className="p-3 md:p-4">{children}</div>
     </div>
