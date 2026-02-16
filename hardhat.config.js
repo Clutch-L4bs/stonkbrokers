@@ -10,14 +10,26 @@ const privateKey = process.env.PRIVATE_KEY
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.24",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
+    // Uniswap v3-core/periphery targets Solidity 0.7.6, while Stonk contracts
+    // target 0.8.24. Hardhat supports multi-compiler builds.
+    compilers: [
+      {
+        version: "0.8.24",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+          // Keeps the expanded NFT compile stable (avoids stack-too-deep).
+          viaIR: true,
+          // Use paris EVM (no PUSH0) for max chain compatibility.
+          evmVersion: "paris",
+        },
       },
-      viaIR: true,
-    },
+      {
+        version: "0.7.6",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+        },
+      },
+    ],
   },
   networks: {
     robinhoodTestnet: {

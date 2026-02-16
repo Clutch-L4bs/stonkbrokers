@@ -3,8 +3,10 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract BrokerWalletAccount {
+    using SafeERC20 for IERC20;
     address public nftContract;
     uint256 public tokenId;
     bool private initialized;
@@ -24,7 +26,7 @@ contract BrokerWalletAccount {
     }
 
     function executeTokenTransfer(address token, address to, uint256 amount) external onlyNftHolder {
-        require(IERC20(token).transfer(to, amount), "transfer failed");
+        IERC20(token).safeTransfer(to, amount);
     }
 
     function execute(address target, uint256 value, bytes calldata data) external onlyNftHolder returns (bytes memory) {

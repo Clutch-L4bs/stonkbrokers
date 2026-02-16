@@ -4,10 +4,12 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/interfaces/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract StonkBroker6551Account is IERC1271 {
     using ECDSA for bytes32;
+    using SafeERC20 for IERC20;
     uint256 public chainId;
     address public tokenContract;
     uint256 public tokenId;
@@ -41,7 +43,7 @@ contract StonkBroker6551Account is IERC1271 {
     }
 
     function executeTokenTransfer(address token, address to, uint256 amount) external onlyOwner {
-        require(IERC20(token).transfer(to, amount), "transfer failed");
+        IERC20(token).safeTransfer(to, amount);
     }
 
     function isValidSignature(bytes32 hash, bytes memory signature) external view override returns (bytes4) {

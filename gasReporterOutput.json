@@ -31,7 +31,7 @@
    "version": "0.8.24",
    "optimizer": true,
    "runs": 200,
-   "viaIR": false
+   "viaIR": true
   }
  },
  "data": {
@@ -60,13 +60,13 @@
      0
     ],
     "gasData": [
-     65445
+     65120
     ],
     "numberOfCalls": 1,
-    "executionGasAverage": 65445,
+    "executionGasAverage": 65120,
     "calldataGasAverage": 0,
-    "min": 65445,
-    "max": 65445
+    "min": 65120,
+    "max": 65120
    },
    "BrokerWalletAccount_cd6dc687": {
     "key": "cd6dc687",
@@ -162,10 +162,20 @@
     "contract": "BrokerWalletPunks",
     "method": "approve",
     "fnSig": "approve(address,uint256)",
-    "intrinsicGas": [],
-    "callData": [],
-    "gasData": [],
-    "numberOfCalls": 0
+    "intrinsicGas": [
+     21632
+    ],
+    "callData": [
+     0
+    ],
+    "gasData": [
+     46003
+    ],
+    "numberOfCalls": 1,
+    "executionGasAverage": 46003,
+    "calldataGasAverage": 0,
+    "min": 46003,
+    "max": 46003
    },
    "BrokerWalletPunks_70a08231": {
     "key": "70a08231",
@@ -248,14 +258,14 @@
      0
     ],
     "gasData": [
-     425449,
-     425449
+     425431,
+     425431
     ],
     "numberOfCalls": 2,
-    "executionGasAverage": 425449,
+    "executionGasAverage": 425431,
     "calldataGasAverage": 0,
-    "min": 425449,
-    "max": 425449
+    "min": 425431,
+    "max": 425431
    },
    "BrokerWalletPunks_06fdde03": {
     "key": "06fdde03",
@@ -488,6 +498,402 @@
     "gasData": [],
     "numberOfCalls": 0
    },
+   "BrokerWalletPunksExpanded_86879235": {
+    "key": "86879235",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "END_TOKEN_ID",
+    "fnSig": "END_TOKEN_ID()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_d2716312": {
+    "key": "d2716312",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "ACCOUNT_SALT",
+    "fnSig": "ACCOUNT_SALT()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_f43a22dc": {
+    "key": "f43a22dc",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "MAX_PER_TX",
+    "fnSig": "MAX_PER_TX()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_32cb6b0c": {
+    "key": "32cb6b0c",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "MAX_SUPPLY",
+    "fnSig": "MAX_SUPPLY()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_c002d23d": {
+    "key": "c002d23d",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "MINT_PRICE",
+    "fnSig": "MINT_PRICE()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_87f65c91": {
+    "key": "87f65c91",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "START_TOKEN_ID",
+    "fnSig": "START_TOKEN_ID()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_11464fbe": {
+    "key": "11464fbe",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "accountImplementation",
+    "fnSig": "accountImplementation()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_095ea7b3": {
+    "key": "095ea7b3",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "approve",
+    "fnSig": "approve(address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_70a08231": {
+    "key": "70a08231",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "balanceOf",
+    "fnSig": "balanceOf(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_32abb23e": {
+    "key": "32abb23e",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "fundedToken",
+    "fnSig": "fundedToken(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_e3468971": {
+    "key": "e3468971",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "fundedTokenMintCount",
+    "fnSig": "fundedTokenMintCount(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_081812fc": {
+    "key": "081812fc",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "getApproved",
+    "fnSig": "getApproved(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_1a9db47c": {
+    "key": "1a9db47c",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "initialWalletGrant",
+    "fnSig": "initialWalletGrant(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_e985e9c5": {
+    "key": "e985e9c5",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "isApprovedForAll",
+    "fnSig": "isApprovedForAll(address,address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_a0712d68": {
+    "key": "a0712d68",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "mint",
+    "fnSig": "mint(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_06fdde03": {
+    "key": "06fdde03",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "name",
+    "fnSig": "name()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_6352211e": {
+    "key": "6352211e",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "ownerOf",
+    "fnSig": "ownerOf(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_7a79dcf4": {
+    "key": "7a79dcf4",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "predictWallet",
+    "fnSig": "predictWallet(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_7b103999": {
+    "key": "7b103999",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "registry",
+    "fnSig": "registry()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_42842e0e": {
+    "key": "42842e0e",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "safeTransferFrom",
+    "fnSig": "safeTransferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_b88d4fde": {
+    "key": "b88d4fde",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "safeTransferFrom",
+    "fnSig": "safeTransferFrom(address,address,uint256,bytes)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_a22cb465": {
+    "key": "a22cb465",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "setApprovalForAll",
+    "fnSig": "setApprovalForAll(address,bool)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_7dcfb528": {
+    "key": "7dcfb528",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "stockTokenAt",
+    "fnSig": "stockTokenAt(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_61b6b168": {
+    "key": "61b6b168",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "stockTokenCount",
+    "fnSig": "stockTokenCount()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_01ffc9a7": {
+    "key": "01ffc9a7",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "supportsInterface",
+    "fnSig": "supportsInterface(bytes4)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_95d89b41": {
+    "key": "95d89b41",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "symbol",
+    "fnSig": "symbol()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_4f6ccce7": {
+    "key": "4f6ccce7",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "tokenByIndex",
+    "fnSig": "tokenByIndex(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_2f745c59": {
+    "key": "2f745c59",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "tokenOfOwnerByIndex",
+    "fnSig": "tokenOfOwnerByIndex(address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_c87b56dd": {
+    "key": "c87b56dd",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "tokenURI",
+    "fnSig": "tokenURI(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_a6e62aef": {
+    "key": "a6e62aef",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "tokenWallet",
+    "fnSig": "tokenWallet(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_18160ddd": {
+    "key": "18160ddd",
+    "isCall": true,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "totalSupply",
+    "fnSig": "totalSupply()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_23b872dd": {
+    "key": "23b872dd",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "transferFrom",
+    "fnSig": "transferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "BrokerWalletPunksExpanded_8cdd2bb0": {
+    "key": "8cdd2bb0",
+    "isCall": false,
+    "contract": "BrokerWalletPunksExpanded",
+    "method": "withdrawMintProceeds",
+    "fnSig": "withdrawMintProceeds(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
    "ERC6551Registry_246a0021": {
     "key": "246a0021",
     "isCall": true,
@@ -569,14 +975,14 @@
      0
     ],
     "gasData": [
-     70662,
-     70662
+     70294,
+     70294
     ],
     "numberOfCalls": 2,
-    "executionGasAverage": 70662,
+    "executionGasAverage": 70294,
     "calldataGasAverage": 0,
-    "min": 70662,
-    "max": 70662
+    "min": 70294,
+    "max": 70294
    },
    "RobinhoodStockToken_07546172": {
     "key": "07546172",
@@ -637,14 +1043,14 @@
      0
     ],
     "gasData": [
-     47329,
-     47329
+     47433,
+     47433
     ],
     "numberOfCalls": 2,
-    "executionGasAverage": 47329,
+    "executionGasAverage": 47433,
     "calldataGasAverage": 0,
-    "min": 47329,
-    "max": 47329
+    "min": 47433,
+    "max": 47433
    },
    "RobinhoodStockToken_95d89b41": {
     "key": "95d89b41",
@@ -788,9 +1194,2230 @@
     "callData": [],
     "gasData": [],
     "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_21307b91": {
+    "key": "21307b91",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "acceptSwapOffer",
+    "fnSig": "acceptSwapOffer(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_7649b957": {
+    "key": "7649b957",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "buyWithEth",
+    "fnSig": "buyWithEth(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_ac74b42d": {
+    "key": "ac74b42d",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "buyWithToken",
+    "fnSig": "buyWithToken(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_305a67a8": {
+    "key": "305a67a8",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "cancelListing",
+    "fnSig": "cancelListing(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_ff5dc8d3": {
+    "key": "ff5dc8d3",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "cancelSwapOffer",
+    "fnSig": "cancelSwapOffer(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_7d5001a3": {
+    "key": "7d5001a3",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "createEthListing",
+    "fnSig": "createEthListing(address,uint256,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_0c4f5d76": {
+    "key": "0c4f5d76",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "createSwapOffer",
+    "fnSig": "createSwapOffer(address,uint256,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_386690de": {
+    "key": "386690de",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "createTokenListing",
+    "fnSig": "createTokenListing(address,uint256,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_3fe6fa19": {
+    "key": "3fe6fa19",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "expandedCollection",
+    "fnSig": "expandedCollection()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_fa59614f": {
+    "key": "fa59614f",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "legacyExpandedCollection",
+    "fnSig": "legacyExpandedCollection()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_de74e57b": {
+    "key": "de74e57b",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "listings",
+    "fnSig": "listings(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_aaccf1ec": {
+    "key": "aaccf1ec",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "nextListingId",
+    "fnSig": "nextListingId()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_68eb5155": {
+    "key": "68eb5155",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "nextSwapId",
+    "fnSig": "nextSwapId()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_150b7a02": {
+    "key": "150b7a02",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "onERC721Received",
+    "fnSig": "onERC721Received(address,address,uint256,bytes)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_61dd277e": {
+    "key": "61dd277e",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "originalCollection",
+    "fnSig": "originalCollection()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_f09c5829": {
+    "key": "f09c5829",
+    "isCall": true,
+    "contract": "StonkBrokersMarketplace",
+    "method": "swaps",
+    "fnSig": "swaps(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkBrokersMarketplace_7ca8448a": {
+    "key": "7ca8448a",
+    "isCall": false,
+    "contract": "StonkBrokersMarketplace",
+    "method": "withdrawStuckEth",
+    "fnSig": "withdrawStuckEth(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_37c909ec": {
+    "key": "37c909ec",
+    "isCall": true,
+    "contract": "StonkEthFaucet",
+    "method": "CLAIM_COOLDOWN",
+    "fnSig": "CLAIM_COOLDOWN()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_a26759cb": {
+    "key": "a26759cb",
+    "isCall": false,
+    "contract": "StonkEthFaucet",
+    "method": "addFunds",
+    "fnSig": "addFunds()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_bf3506c1": {
+    "key": "bf3506c1",
+    "isCall": true,
+    "contract": "StonkEthFaucet",
+    "method": "canClaim",
+    "fnSig": "canClaim(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_4e71d92d": {
+    "key": "4e71d92d",
+    "isCall": false,
+    "contract": "StonkEthFaucet",
+    "method": "claim",
+    "fnSig": "claim()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_30bbab15": {
+    "key": "30bbab15",
+    "isCall": true,
+    "contract": "StonkEthFaucet",
+    "method": "claimAmountWei",
+    "fnSig": "claimAmountWei()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_03822d3b": {
+    "key": "03822d3b",
+    "isCall": true,
+    "contract": "StonkEthFaucet",
+    "method": "lastClaimAt",
+    "fnSig": "lastClaimAt(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_70f23da7": {
+    "key": "70f23da7",
+    "isCall": true,
+    "contract": "StonkEthFaucet",
+    "method": "nextClaimTime",
+    "fnSig": "nextClaimTime(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "StonkEthFaucet",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "StonkEthFaucet",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_a7d9a319": {
+    "key": "a7d9a319",
+    "isCall": false,
+    "contract": "StonkEthFaucet",
+    "method": "setClaimAmountWei",
+    "fnSig": "setClaimAmountWei(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "StonkEthFaucet",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkEthFaucet_f3fef3a3": {
+    "key": "f3fef3a3",
+    "isCall": false,
+    "contract": "StonkEthFaucet",
+    "method": "withdraw",
+    "fnSig": "withdraw(address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_59770438": {
+    "key": "59770438",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "getToken",
+    "fnSig": "getToken(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_3af32abf": {
+    "key": "3af32abf",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "isWhitelisted",
+    "fnSig": "isWhitelisted(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_82b71e2a": {
+    "key": "82b71e2a",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "launcherFactory",
+    "fnSig": "launcherFactory()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_e30e5ae9": {
+    "key": "e30e5ae9",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "listTokens",
+    "fnSig": "listTokens(uint256,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_876dd6c0": {
+    "key": "876dd6c0",
+    "isCall": false,
+    "contract": "StonkTokenRegistry",
+    "method": "registerLaunchedToken",
+    "fnSig": "registerLaunchedToken(address,string,uint8,string,string)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "StonkTokenRegistry",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_be5f1bda": {
+    "key": "be5f1bda",
+    "isCall": false,
+    "contract": "StonkTokenRegistry",
+    "method": "setLauncherFactory",
+    "fnSig": "setLauncherFactory(address)",
+    "intrinsicGas": [
+     21432,
+     21432,
+     21432,
+     21432,
+     21432
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     47675,
+     47675,
+     47675,
+     47675,
+     47675
+    ],
+    "numberOfCalls": 5,
+    "executionGasAverage": 47675,
+    "calldataGasAverage": 0,
+    "min": 47675,
+    "max": 47675
+   },
+   "StonkTokenRegistry_4c883100": {
+    "key": "4c883100",
+    "isCall": false,
+    "contract": "StonkTokenRegistry",
+    "method": "setToken",
+    "fnSig": "setToken(address,bool,string,uint8,string,string)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_92a91a3a": {
+    "key": "92a91a3a",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "tokenAt",
+    "fnSig": "tokenAt(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_9f181b5e": {
+    "key": "9f181b5e",
+    "isCall": true,
+    "contract": "StonkTokenRegistry",
+    "method": "tokenCount",
+    "fnSig": "tokenCount()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkTokenRegistry_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "StonkTokenRegistry",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_dd62ed3e": {
+    "key": "dd62ed3e",
+    "isCall": true,
+    "contract": "WETH9",
+    "method": "allowance",
+    "fnSig": "allowance(address,address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_095ea7b3": {
+    "key": "095ea7b3",
+    "isCall": false,
+    "contract": "WETH9",
+    "method": "approve",
+    "fnSig": "approve(address,uint256)",
+    "intrinsicGas": [
+     21632,
+     21632,
+     21632,
+     21632,
+     21632
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     45942,
+     45942,
+     45942,
+     45942,
+     45942
+    ],
+    "numberOfCalls": 5,
+    "executionGasAverage": 45942,
+    "calldataGasAverage": 0,
+    "min": 45942,
+    "max": 45942
+   },
+   "WETH9_70a08231": {
+    "key": "70a08231",
+    "isCall": true,
+    "contract": "WETH9",
+    "method": "balanceOf",
+    "fnSig": "balanceOf(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_313ce567": {
+    "key": "313ce567",
+    "isCall": true,
+    "contract": "WETH9",
+    "method": "decimals",
+    "fnSig": "decimals()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_d0e30db0": {
+    "key": "d0e30db0",
+    "isCall": false,
+    "contract": "WETH9",
+    "method": "deposit",
+    "fnSig": "deposit()",
+    "intrinsicGas": [
+     21064,
+     21064,
+     21064,
+     21064
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     46880,
+     46880,
+     46880,
+     46880
+    ],
+    "numberOfCalls": 4,
+    "executionGasAverage": 46880,
+    "calldataGasAverage": 0,
+    "min": 46880,
+    "max": 46880
+   },
+   "WETH9_06fdde03": {
+    "key": "06fdde03",
+    "isCall": true,
+    "contract": "WETH9",
+    "method": "name",
+    "fnSig": "name()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_95d89b41": {
+    "key": "95d89b41",
+    "isCall": true,
+    "contract": "WETH9",
+    "method": "symbol",
+    "fnSig": "symbol()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_18160ddd": {
+    "key": "18160ddd",
+    "isCall": true,
+    "contract": "WETH9",
+    "method": "totalSupply",
+    "fnSig": "totalSupply()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_a9059cbb": {
+    "key": "a9059cbb",
+    "isCall": false,
+    "contract": "WETH9",
+    "method": "transfer",
+    "fnSig": "transfer(address,uint256)",
+    "intrinsicGas": [
+     21632
+    ],
+    "callData": [
+     0
+    ],
+    "gasData": [
+     29701
+    ],
+    "numberOfCalls": 1,
+    "executionGasAverage": 29701,
+    "calldataGasAverage": 0,
+    "min": 29701,
+    "max": 29701
+   },
+   "WETH9_23b872dd": {
+    "key": "23b872dd",
+    "isCall": false,
+    "contract": "WETH9",
+    "method": "transferFrom",
+    "fnSig": "transferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "WETH9_2e1a7d4d": {
+    "key": "2e1a7d4d",
+    "isCall": false,
+    "contract": "WETH9",
+    "method": "withdraw",
+    "fnSig": "withdraw(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_619e0b2e": {
+    "key": "619e0b2e",
+    "isCall": false,
+    "contract": "StonkLpFeeSplitter",
+    "method": "collectAndSplit",
+    "fnSig": "collectAndSplit()",
+    "intrinsicGas": [
+     21064
+    ],
+    "callData": [
+     0
+    ],
+    "gasData": [
+     228135
+    ],
+    "numberOfCalls": 1,
+    "executionGasAverage": 228135,
+    "calldataGasAverage": 0,
+    "min": 228135,
+    "max": 228135
+   },
+   "StonkLpFeeSplitter_286aa84c": {
+    "key": "286aa84c",
+    "isCall": false,
+    "contract": "StonkLpFeeSplitter",
+    "method": "initializePosition",
+    "fnSig": "initializePosition(uint256,address,address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_158ef93e": {
+    "key": "158ef93e",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "initialized",
+    "fnSig": "initialized()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_150b7a02": {
+    "key": "150b7a02",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "onERC721Received",
+    "fnSig": "onERC721Received(address,address,uint256,bytes)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_791b98bc": {
+    "key": "791b98bc",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "positionManager",
+    "fnSig": "positionManager()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_ceefe5d1": {
+    "key": "ceefe5d1",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "positionTokenId",
+    "fnSig": "positionTokenId()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_24e7964a": {
+    "key": "24e7964a",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "stakingVault",
+    "fnSig": "stakingVault()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_0dfe1681": {
+    "key": "0dfe1681",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "token0",
+    "fnSig": "token0()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_d21220a7": {
+    "key": "d21220a7",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "token1",
+    "fnSig": "token1()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLpFeeSplitter_61d027b3": {
+    "key": "61d027b3",
+    "isCall": true,
+    "contract": "StonkLpFeeSplitter",
+    "method": "treasury",
+    "fnSig": "treasury()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_a6f2ae3a": {
+    "key": "a6f2ae3a",
+    "isCall": false,
+    "contract": "StonkLaunch",
+    "method": "buy",
+    "fnSig": "buy()",
+    "intrinsicGas": [
+     21064,
+     21064
+    ],
+    "callData": [
+     0,
+     0
+    ],
+    "gasData": [
+     83244,
+     83244
+    ],
+    "numberOfCalls": 2,
+    "executionGasAverage": 83244,
+    "calldataGasAverage": 0,
+    "min": 83244,
+    "max": 83244
+   },
+   "StonkLaunch_c45a0155": {
+    "key": "c45a0155",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "factory",
+    "fnSig": "factory()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_6052970c": {
+    "key": "6052970c",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "feeSplitter",
+    "fnSig": "feeSplitter()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_8b21d887": {
+    "key": "8b21d887",
+    "isCall": false,
+    "contract": "StonkLaunch",
+    "method": "finalize",
+    "fnSig": "finalize(uint160,uint24)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_b3f05b97": {
+    "key": "b3f05b97",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "finalized",
+    "fnSig": "finalized()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_135d088d": {
+    "key": "135d088d",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "imageURI",
+    "fnSig": "imageURI()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_381562c2": {
+    "key": "381562c2",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "liquiditySupply",
+    "fnSig": "liquiditySupply()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_0242d712": {
+    "key": "0242d712",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "lpTokenId",
+    "fnSig": "lpTokenId()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_972598e7": {
+    "key": "972598e7",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "memeToken",
+    "fnSig": "memeToken()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_03ee438c": {
+    "key": "03ee438c",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "metadataURI",
+    "fnSig": "metadataURI()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_16f0115b": {
+    "key": "16f0115b",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "pool",
+    "fnSig": "pool()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_089fe6aa": {
+    "key": "089fe6aa",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "poolFee",
+    "fnSig": "poolFee()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_791b98bc": {
+    "key": "791b98bc",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "positionManager",
+    "fnSig": "positionManager()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_dbf09d66": {
+    "key": "dbf09d66",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "priceWeiPerToken",
+    "fnSig": "priceWeiPerToken()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_7b103999": {
+    "key": "7b103999",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "registry",
+    "fnSig": "registry()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_13e4930d": {
+    "key": "13e4930d",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "remainingForSale",
+    "fnSig": "remainingForSale()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_a96af0f4": {
+    "key": "a96af0f4",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "saleSupply",
+    "fnSig": "saleSupply()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_02c7e7af": {
+    "key": "02c7e7af",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "sold",
+    "fnSig": "sold()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_24e7964a": {
+    "key": "24e7964a",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "stakingVault",
+    "fnSig": "stakingVault()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_fe7746af": {
+    "key": "fe7746af",
+    "isCall": false,
+    "contract": "StonkLaunch",
+    "method": "sweepEth",
+    "fnSig": "sweepEth(address)",
+    "intrinsicGas": [
+     21432,
+     21432
+    ],
+    "callData": [
+     0,
+     0
+    ],
+    "gasData": [
+     32875,
+     32875
+    ],
+    "numberOfCalls": 2,
+    "executionGasAverage": 32875,
+    "calldataGasAverage": 0,
+    "min": 32875,
+    "max": 32875
+   },
+   "StonkLaunch_61d027b3": {
+    "key": "61d027b3",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "treasury",
+    "fnSig": "treasury()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLaunch_3fc8cef3": {
+    "key": "3fc8cef3",
+    "isCall": true,
+    "contract": "StonkLaunch",
+    "method": "weth",
+    "fnSig": "weth()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_4ea03417": {
+    "key": "4ea03417",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "createLaunch",
+    "fnSig": "createLaunch((string,string,string,string,uint256,uint256,uint256,uint256))",
+    "intrinsicGas": [
+     24020,
+     24020,
+     23936,
+     23936,
+     23756,
+     23756,
+     23744,
+     23744
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     3716244,
+     3716244,
+     3716256,
+     3716256,
+     3741717,
+     3741717,
+     3741801,
+     3741801
+    ],
+    "numberOfCalls": 8,
+    "executionGasAverage": 3729005,
+    "calldataGasAverage": 0,
+    "min": 3716244,
+    "max": 3741801
+   },
+   "StonkLauncherFactory_d1aa5c4e": {
+    "key": "d1aa5c4e",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "finalizeLaunch",
+    "fnSig": "finalizeLaunch(address,uint160,uint24)",
+    "intrinsicGas": [
+     21724,
+     21724
+    ],
+    "callData": [
+     0,
+     0
+    ],
+    "gasData": [
+     1777955,
+     1777973
+    ],
+    "numberOfCalls": 2,
+    "executionGasAverage": 1777964,
+    "calldataGasAverage": 0,
+    "min": 1777955,
+    "max": 1777973
+   },
+   "StonkLauncherFactory_1f2d8550": {
+    "key": "1f2d8550",
+    "isCall": true,
+    "contract": "StonkLauncherFactory",
+    "method": "launches",
+    "fnSig": "launches(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "StonkLauncherFactory",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_791b98bc": {
+    "key": "791b98bc",
+    "isCall": true,
+    "contract": "StonkLauncherFactory",
+    "method": "positionManager",
+    "fnSig": "positionManager()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_7b103999": {
+    "key": "7b103999",
+    "isCall": true,
+    "contract": "StonkLauncherFactory",
+    "method": "registry",
+    "fnSig": "registry()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_a91ee0dc": {
+    "key": "a91ee0dc",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "setRegistry",
+    "fnSig": "setRegistry(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_f0f44260": {
+    "key": "f0f44260",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "setTreasury",
+    "fnSig": "setTreasury(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_7cab4ae2": {
+    "key": "7cab4ae2",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "setUniswapConfig",
+    "fnSig": "setUniswapConfig(address,address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "StonkLauncherFactory",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_61d027b3": {
+    "key": "61d027b3",
+    "isCall": true,
+    "contract": "StonkLauncherFactory",
+    "method": "treasury",
+    "fnSig": "treasury()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkLauncherFactory_3fc8cef3": {
+    "key": "3fc8cef3",
+    "isCall": true,
+    "contract": "StonkLauncherFactory",
+    "method": "weth",
+    "fnSig": "weth()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_dd62ed3e": {
+    "key": "dd62ed3e",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "allowance",
+    "fnSig": "allowance(address,address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_095ea7b3": {
+    "key": "095ea7b3",
+    "isCall": false,
+    "contract": "StonkMemeCoin",
+    "method": "approve",
+    "fnSig": "approve(address,uint256)",
+    "intrinsicGas": [
+     21644,
+     21632,
+     21632
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     46003,
+     46003,
+     46015
+    ],
+    "numberOfCalls": 3,
+    "executionGasAverage": 46007,
+    "calldataGasAverage": 0,
+    "min": 46003,
+    "max": 46015
+   },
+   "StonkMemeCoin_70a08231": {
+    "key": "70a08231",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "balanceOf",
+    "fnSig": "balanceOf(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_313ce567": {
+    "key": "313ce567",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "decimals",
+    "fnSig": "decimals()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_03ee438c": {
+    "key": "03ee438c",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "metadataURI",
+    "fnSig": "metadataURI()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_06fdde03": {
+    "key": "06fdde03",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "name",
+    "fnSig": "name()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_95d89b41": {
+    "key": "95d89b41",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "symbol",
+    "fnSig": "symbol()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_18160ddd": {
+    "key": "18160ddd",
+    "isCall": true,
+    "contract": "StonkMemeCoin",
+    "method": "totalSupply",
+    "fnSig": "totalSupply()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_a9059cbb": {
+    "key": "a9059cbb",
+    "isCall": false,
+    "contract": "StonkMemeCoin",
+    "method": "transfer",
+    "fnSig": "transfer(address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkMemeCoin_23b872dd": {
+    "key": "23b872dd",
+    "isCall": false,
+    "contract": "StonkMemeCoin",
+    "method": "transferFrom",
+    "fnSig": "transferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "ForceSend_668a2f67": {
+    "key": "668a2f67",
+    "isCall": false,
+    "contract": "ForceSend",
+    "method": "boom",
+    "fnSig": "boom(address)",
+    "intrinsicGas": [
+     21432
+    ],
+    "callData": [
+     0
+    ],
+    "gasData": [
+     29188
+    ],
+    "numberOfCalls": 1,
+    "executionGasAverage": 29188,
+    "calldataGasAverage": 0,
+    "min": 29188,
+    "max": 29188
+   },
+   "MockNonfungiblePositionManager_88316456": {
+    "key": "88316456",
+    "isCall": false,
+    "contract": "MockNonfungiblePositionManager",
+    "method": "mint",
+    "fnSig": "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockNonfungiblePositionManager_fc6f7865": {
+    "key": "fc6f7865",
+    "isCall": false,
+    "contract": "MockNonfungiblePositionManager",
+    "method": "collect",
+    "fnSig": "collect((uint256,address,uint128,uint128))",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockNonfungiblePositionManager_13ead562": {
+    "key": "13ead562",
+    "isCall": false,
+    "contract": "MockNonfungiblePositionManager",
+    "method": "createAndInitializePoolIfNecessary",
+    "fnSig": "createAndInitializePoolIfNecessary(address,address,uint24,uint160)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockNonfungiblePositionManager_2fd49abe": {
+    "key": "2fd49abe",
+    "isCall": true,
+    "contract": "MockNonfungiblePositionManager",
+    "method": "lastPool",
+    "fnSig": "lastPool()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockNonfungiblePositionManager_6352211e": {
+    "key": "6352211e",
+    "isCall": true,
+    "contract": "MockNonfungiblePositionManager",
+    "method": "ownerOf",
+    "fnSig": "ownerOf(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockNonfungiblePositionManager_42842e0e": {
+    "key": "42842e0e",
+    "isCall": false,
+    "contract": "MockNonfungiblePositionManager",
+    "method": "safeTransferFrom",
+    "fnSig": "safeTransferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockTwapOracle_93106f54": {
+    "key": "93106f54",
+    "isCall": true,
+    "contract": "MockTwapOracle",
+    "method": "getTwapTick",
+    "fnSig": "getTwapTick(address,uint32)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockTwapOracle_b04f00f9": {
+    "key": "b04f00f9",
+    "isCall": false,
+    "contract": "MockTwapOracle",
+    "method": "setTick",
+    "fnSig": "setTick(address,int24)",
+    "intrinsicGas": [
+     21560,
+     21560,
+     21932,
+     21932,
+     21572
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     26967,
+     27339,
+     44067,
+     44079,
+     44439
+    ],
+    "numberOfCalls": 5,
+    "executionGasAverage": 37378,
+    "calldataGasAverage": 0,
+    "min": 26967,
+    "max": 44439
+   },
+   "MockTwapOracle_07db0ca5": {
+    "key": "07db0ca5",
+    "isCall": true,
+    "contract": "MockTwapOracle",
+    "method": "tickByPool",
+    "fnSig": "tickByPool(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockUniswapV3Pool_0dfe1681": {
+    "key": "0dfe1681",
+    "isCall": true,
+    "contract": "MockUniswapV3Pool",
+    "method": "token0",
+    "fnSig": "token0()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "MockUniswapV3Pool_d21220a7": {
+    "key": "d21220a7",
+    "isCall": true,
+    "contract": "MockUniswapV3Pool",
+    "method": "token1",
+    "fnSig": "token1()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_31268b69": {
+    "key": "31268b69",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "MIN_TWAP_SECONDS",
+    "fnSig": "MIN_TWAP_SECONDS()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_fba225b9": {
+    "key": "fba225b9",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "buyOption",
+    "fnSig": "buyOption(uint256)",
+    "intrinsicGas": [
+     21204,
+     21204,
+     21204,
+     21204
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     339638,
+     339638,
+     339638,
+     339638
+    ],
+    "numberOfCalls": 4,
+    "executionGasAverage": 339638,
+    "calldataGasAverage": 0,
+    "min": 339638,
+    "max": 339638
+   },
+   "StonkCoveredCallVault_ef706adf": {
+    "key": "ef706adf",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "cancelOffer",
+    "fnSig": "cancelOffer(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_b0a2b492": {
+    "key": "b0a2b492",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "createOffer",
+    "fnSig": "createOffer(address,address,address,uint32,int24,uint256,uint256,uint256,uint256)",
+    "intrinsicGas": [
+     23236,
+     23236,
+     23608,
+     23224
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     297010,
+     297022,
+     297022,
+     297458
+    ],
+    "numberOfCalls": 4,
+    "executionGasAverage": 297128,
+    "calldataGasAverage": 0,
+    "min": 297010,
+    "max": 297458
+   },
+   "StonkCoveredCallVault_b07f0a41": {
+    "key": "b07f0a41",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "exercise",
+    "fnSig": "exercise(uint256)",
+    "intrinsicGas": [
+     21204,
+     21204,
+     21204
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     139236,
+     139308,
+     139308
+    ],
+    "numberOfCalls": 3,
+    "executionGasAverage": 139284,
+    "calldataGasAverage": 0,
+    "min": 139236,
+    "max": 139308
+   },
+   "StonkCoveredCallVault_5f5d0655": {
+    "key": "5f5d0655",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "nextOfferId",
+    "fnSig": "nextOfferId()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_8a72ea6a": {
+    "key": "8a72ea6a",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "offers",
+    "fnSig": "offers(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_033a13e4": {
+    "key": "033a13e4",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "optionNft",
+    "fnSig": "optionNft()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_7dc0d1d0": {
+    "key": "7dc0d1d0",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "oracle",
+    "fnSig": "oracle()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_01bb9baa": {
+    "key": "01bb9baa",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "reclaimExpired",
+    "fnSig": "reclaimExpired(uint256)",
+    "intrinsicGas": [
+     21204
+    ],
+    "callData": [
+     0
+    ],
+    "gasData": [
+     84032
+    ],
+    "numberOfCalls": 1,
+    "executionGasAverage": 84032,
+    "calldataGasAverage": 0,
+    "min": 84032,
+    "max": 84032
+   },
+   "StonkCoveredCallVault_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "StonkCoveredCallVault",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkCoveredCallVault_72ffc1e6": {
+    "key": "72ffc1e6",
+    "isCall": true,
+    "contract": "StonkCoveredCallVault",
+    "method": "underlyingReclaimed",
+    "fnSig": "underlyingReclaimed(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_095ea7b3": {
+    "key": "095ea7b3",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "approve",
+    "fnSig": "approve(address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_70a08231": {
+    "key": "70a08231",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "balanceOf",
+    "fnSig": "balanceOf(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_081812fc": {
+    "key": "081812fc",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "getApproved",
+    "fnSig": "getApproved(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_e985e9c5": {
+    "key": "e985e9c5",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "isApprovedForAll",
+    "fnSig": "isApprovedForAll(address,address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_50144c13": {
+    "key": "50144c13",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "markExercised",
+    "fnSig": "markExercised(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_bbace58e": {
+    "key": "bbace58e",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "mint",
+    "fnSig": "mint(address,(address,address,address,address,address,uint32,int24,uint256,uint256,uint256,uint256,bool))",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_06fdde03": {
+    "key": "06fdde03",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "name",
+    "fnSig": "name()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_61b8ce8c": {
+    "key": "61b8ce8c",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "nextId",
+    "fnSig": "nextId()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_8da5cb5b": {
+    "key": "8da5cb5b",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "owner",
+    "fnSig": "owner()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_6352211e": {
+    "key": "6352211e",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "ownerOf",
+    "fnSig": "ownerOf(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_99fbab88": {
+    "key": "99fbab88",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "positions",
+    "fnSig": "positions(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_715018a6": {
+    "key": "715018a6",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "renounceOwnership",
+    "fnSig": "renounceOwnership()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_42842e0e": {
+    "key": "42842e0e",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "safeTransferFrom",
+    "fnSig": "safeTransferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_b88d4fde": {
+    "key": "b88d4fde",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "safeTransferFrom",
+    "fnSig": "safeTransferFrom(address,address,uint256,bytes)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_a22cb465": {
+    "key": "a22cb465",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "setApprovalForAll",
+    "fnSig": "setApprovalForAll(address,bool)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_01ffc9a7": {
+    "key": "01ffc9a7",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "supportsInterface",
+    "fnSig": "supportsInterface(bytes4)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_95d89b41": {
+    "key": "95d89b41",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "symbol",
+    "fnSig": "symbol()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_c87b56dd": {
+    "key": "c87b56dd",
+    "isCall": true,
+    "contract": "StonkOptionPositionNFT",
+    "method": "tokenURI",
+    "fnSig": "tokenURI(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_23b872dd": {
+    "key": "23b872dd",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "transferFrom",
+    "fnSig": "transferFrom(address,address,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkOptionPositionNFT_f2fde38b": {
+    "key": "f2fde38b",
+    "isCall": false,
+    "contract": "StonkOptionPositionNFT",
+    "method": "transferOwnership",
+    "fnSig": "transferOwnership(address)",
+    "intrinsicGas": [
+     21432,
+     21432,
+     21432
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "gasData": [
+     28821,
+     28821,
+     28821
+    ],
+    "numberOfCalls": 3,
+    "executionGasAverage": 28821,
+    "calldataGasAverage": 0,
+    "min": 28821,
+    "max": 28821
+   },
+   "StonkTwapOracle_93106f54": {
+    "key": "93106f54",
+    "isCall": true,
+    "contract": "StonkTwapOracle",
+    "method": "getTwapTick",
+    "fnSig": "getTwapTick(address,uint32)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_f8764cec": {
+    "key": "f8764cec",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "MIN_LOCK",
+    "fnSig": "MIN_LOCK()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_5c7e2fe7": {
+    "key": "5c7e2fe7",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "acc0PerShare",
+    "fnSig": "acc0PerShare()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_452fedb2": {
+    "key": "452fedb2",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "acc1PerShare",
+    "fnSig": "acc1PerShare()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_4e71d92d": {
+    "key": "4e71d92d",
+    "isCall": false,
+    "contract": "StonkYieldStakingVault",
+    "method": "claim",
+    "fnSig": "claim()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_d5f39488": {
+    "key": "d5f39488",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "deployer",
+    "fnSig": "deployer()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_6052970c": {
+    "key": "6052970c",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "feeSplitter",
+    "fnSig": "feeSplitter()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_b9fdb71f": {
+    "key": "b9fdb71f",
+    "isCall": false,
+    "contract": "StonkYieldStakingVault",
+    "method": "notifyRewards",
+    "fnSig": "notifyRewards(uint256,uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_31d7a262": {
+    "key": "31d7a262",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "pendingRewards",
+    "fnSig": "pendingRewards(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_1dee25de": {
+    "key": "1dee25de",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "rewardToken0",
+    "fnSig": "rewardToken0()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_6f28d688": {
+    "key": "6f28d688",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "rewardToken1",
+    "fnSig": "rewardToken1()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_b17fb9d6": {
+    "key": "b17fb9d6",
+    "isCall": false,
+    "contract": "StonkYieldStakingVault",
+    "method": "setFeeSplitter",
+    "fnSig": "setFeeSplitter(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_a694fc3a": {
+    "key": "a694fc3a",
+    "isCall": false,
+    "contract": "StonkYieldStakingVault",
+    "method": "stake",
+    "fnSig": "stake(uint256)",
+    "intrinsicGas": [
+     21264
+    ],
+    "callData": [
+     0
+    ],
+    "gasData": [
+     159328
+    ],
+    "numberOfCalls": 1,
+    "executionGasAverage": 159328,
+    "calldataGasAverage": 0,
+    "min": 159328,
+    "max": 159328
+   },
+   "StonkYieldStakingVault_51ed6a30": {
+    "key": "51ed6a30",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "stakeToken",
+    "fnSig": "stakeToken()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_817b1cd2": {
+    "key": "817b1cd2",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "totalStaked",
+    "fnSig": "totalStaked()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_964a843b": {
+    "key": "964a843b",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "undistributed0",
+    "fnSig": "undistributed0()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_ddcb0303": {
+    "key": "ddcb0303",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "undistributed1",
+    "fnSig": "undistributed1()",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_2e17de78": {
+    "key": "2e17de78",
+    "isCall": false,
+    "contract": "StonkYieldStakingVault",
+    "method": "unstake",
+    "fnSig": "unstake(uint256)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
+   },
+   "StonkYieldStakingVault_a87430ba": {
+    "key": "a87430ba",
+    "isCall": true,
+    "contract": "StonkYieldStakingVault",
+    "method": "users",
+    "fnSig": "users(address)",
+    "intrinsicGas": [],
+    "callData": [],
+    "gasData": [],
+    "numberOfCalls": 0
    }
   },
   "deployments": [
+   {
+    "name": "Address",
+    "gasData": [],
+    "callData": []
+   },
    {
     "name": "Base64",
     "gasData": [],
@@ -804,10 +3431,10 @@
    {
     "name": "BrokerWalletPunks",
     "gasData": [
-     4941574,
-     4941574,
-     4941574,
-     4941574
+     4530759,
+     4530759,
+     4530759,
+     4530759
     ],
     "callData": [
      0,
@@ -815,11 +3442,16 @@
      0,
      0
     ],
-    "executionGasAverage": 4941574,
+    "executionGasAverage": 4530759,
     "calldataGasAverage": 0,
-    "min": 4941574,
-    "max": 4941574,
-    "percent": 8.2
+    "min": 4530759,
+    "max": 4530759,
+    "percent": 7.6
+   },
+   {
+    "name": "BrokerWalletPunksExpanded",
+    "gasData": [],
+    "callData": []
    },
    {
     "name": "Clones",
@@ -854,10 +3486,10 @@
    {
     "name": "ERC6551Registry",
     "gasData": [
-     255622,
-     255622,
-     255622,
-     255622
+     234444,
+     234444,
+     234444,
+     234444
     ],
     "callData": [
      0,
@@ -865,10 +3497,10 @@
      0,
      0
     ],
-    "executionGasAverage": 255622,
+    "executionGasAverage": 234444,
     "calldataGasAverage": 0,
-    "min": 255622,
-    "max": 255622,
+    "min": 234444,
+    "max": 234444,
     "percent": 0.4
    },
    {
@@ -892,12 +3524,31 @@
     "callData": []
    },
    {
+    "name": "ForceSend",
+    "gasData": [
+     80704
+    ],
+    "callData": [
+     0
+    ],
+    "executionGasAverage": 80704,
+    "calldataGasAverage": 0,
+    "min": 80704,
+    "max": 80704,
+    "percent": 0.1
+   },
+   {
     "name": "IERC1155Errors",
     "gasData": [],
     "callData": []
    },
    {
     "name": "IERC1271",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "IERC1363",
     "gasData": [],
     "callData": []
    },
@@ -952,9 +3603,88 @@
     "callData": []
    },
    {
+    "name": "INonfungiblePositionManagerMinimal",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "IStonkYieldStakingVault",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "IUniswapV3PoolMinimal",
+    "gasData": [],
+    "callData": []
+   },
+   {
     "name": "Math",
     "gasData": [],
     "callData": []
+   },
+   {
+    "name": "MockNonfungiblePositionManager",
+    "gasData": [
+     731588,
+     731588,
+     731588,
+     731588,
+     731588
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 731588,
+    "calldataGasAverage": 0,
+    "min": 731588,
+    "max": 731588,
+    "percent": 1.2
+   },
+   {
+    "name": "MockTwapOracle",
+    "gasData": [
+     131711,
+     131711,
+     131711
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 131711,
+    "calldataGasAverage": 0,
+    "min": 131711,
+    "max": 131711,
+    "percent": 0.2
+   },
+   {
+    "name": "MockUniswapV3Pool",
+    "gasData": [
+     141196,
+     141196,
+     141208,
+     141208,
+     141208,
+     141208
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 141204,
+    "calldataGasAverage": 0,
+    "min": 141196,
+    "max": 141208,
+    "percent": 0.2
    },
    {
     "name": "Ownable",
@@ -974,10 +3704,10 @@
    {
     "name": "RobinhoodStockToken",
     "gasData": [
-     683689,
-     683689,
-     683689,
-     683689
+     685560,
+     685560,
+     685560,
+     685560
     ],
     "callData": [
      0,
@@ -985,14 +3715,19 @@
      0,
      0
     ],
-    "executionGasAverage": 683689,
+    "executionGasAverage": 685560,
     "calldataGasAverage": 0,
-    "min": 683689,
-    "max": 683689,
+    "min": 685560,
+    "max": 685560,
     "percent": 1.1
    },
    {
     "name": "SafeCast",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "SafeERC20",
     "gasData": [],
     "callData": []
    },
@@ -1004,10 +3739,10 @@
    {
     "name": "StonkBroker6551Account",
     "gasData": [
-     582012,
-     582012,
-     582012,
-     582012
+     472347,
+     472347,
+     472347,
+     472347
     ],
     "callData": [
      0,
@@ -1015,16 +3750,172 @@
      0,
      0
     ],
-    "executionGasAverage": 582012,
+    "executionGasAverage": 472347,
     "calldataGasAverage": 0,
-    "min": 582012,
-    "max": 582012,
+    "min": 472347,
+    "max": 472347,
+    "percent": 0.8
+   },
+   {
+    "name": "StonkBrokersMarketplace",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "StonkCoveredCallVault",
+    "gasData": [
+     1411223,
+     1411223,
+     1411223
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 1411223,
+    "calldataGasAverage": 0,
+    "min": 1411223,
+    "max": 1411223,
+    "percent": 2.4
+   },
+   {
+    "name": "StonkEthFaucet",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "StonkLaunch",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "StonkLauncherFactory",
+    "gasData": [
+     5322381,
+     5322393,
+     5322393,
+     5322393,
+     5322393
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 5322391,
+    "calldataGasAverage": 0,
+    "min": 5322381,
+    "max": 5322393,
+    "percent": 8.9
+   },
+   {
+    "name": "StonkLpFeeSplitter",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "StonkMemeCoin",
+    "gasData": [
+     609734,
+     609734,
+     609734
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 609734,
+    "calldataGasAverage": 0,
+    "min": 609734,
+    "max": 609734,
     "percent": 1
+   },
+   {
+    "name": "StonkOptionPositionNFT",
+    "gasData": [
+     1206153,
+     1206153,
+     1206153
+    ],
+    "callData": [
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 1206153,
+    "calldataGasAverage": 0,
+    "min": 1206153,
+    "max": 1206153,
+    "percent": 2
+   },
+   {
+    "name": "StonkTokenRegistry",
+    "gasData": [
+     1158251,
+     1158251,
+     1158251,
+     1158251,
+     1158251
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 1158251,
+    "calldataGasAverage": 0,
+    "min": 1158251,
+    "max": 1158251,
+    "percent": 1.9
+   },
+   {
+    "name": "StonkTwapOracle",
+    "gasData": [],
+    "callData": []
+   },
+   {
+    "name": "StonkYieldStakingVault",
+    "gasData": [],
+    "callData": []
    },
    {
     "name": "Strings",
     "gasData": [],
     "callData": []
+   },
+   {
+    "name": "WETH9",
+    "gasData": [
+     584399,
+     584399,
+     584399,
+     584399,
+     584399,
+     584399,
+     584399,
+     584399
+    ],
+    "callData": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "executionGasAverage": 584399,
+    "calldataGasAverage": 0,
+    "min": 584399,
+    "max": 584399,
+    "percent": 1
    }
   ]
  }

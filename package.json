@@ -7,7 +7,11 @@
     "test": "npx hardhat test",
     "deploy:robinhood": "npx hardhat run scripts/deploy.js --network robinhoodTestnet",
     "deploy:expanded": "npx hardhat run scripts/deploy-expanded-marketplace.js --network robinhoodTestnet",
+    "deploy:uniswap": "npx hardhat run scripts/deploy-uniswap.js --network robinhoodTestnet",
+    "deploy:registry": "npx hardhat run scripts/deploy-registry.js --network robinhoodTestnet",
     "deploy:faucet": "npx hardhat run scripts/deploy-faucet.js --network robinhoodTestnet",
+    "deploy:launcher": "npx hardhat run scripts/deploy-launcher.js --network robinhoodTestnet",
+    "deploy:options": "npx hardhat run scripts/deploy-options.js --network robinhoodTestnet",
     "fund:robinhood": "npx hardhat run scripts/fund-inventory.js --network robinhoodTestnet",
     "seed:robinhood": "npx hardhat run scripts/seed-inventory.js --network robinhoodTestnet",
     "mint:robinhood": "npx hardhat run scripts/mint.js --network robinhoodTestnet",
@@ -21,12 +25,15 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@ethereumjs/util": "^10.1.1",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "dotenv": "^17.2.4",
     "hardhat": "^2.28.5",
     "puppeteer": "^24.37.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0"
+    "@openzeppelin/contracts": "^5.4.0",
+    "@uniswap/v3-core": "^1.0.1",
+    "@uniswap/v3-periphery": "^1.4.4"
   }
 }

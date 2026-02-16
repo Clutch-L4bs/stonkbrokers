@@ -1767,13 +1767,25 @@
       if (feedStatus) setStatus(feedStatus, "");
 
       const [nextListingId, nextSwapId] = await Promise.all([reader.nextListingId(), reader.nextSwapId()]);
-      const listingEnd = Number(nextListingId) - 1;
-      const swapEnd = Number(nextSwapId) - 1;
+      const listingEnd = nextListingId > 0n ? nextListingId - 1n : 0n;
+      const swapEnd = nextSwapId > 0n ? nextSwapId - 1n : 0n;
       const items = [];
 
-      for (let id = Math.max(1, listingEnd - 24); id <= listingEnd; id++) {
-        const l = await reader.listings(id);
-        if (Number(l.id) === 0) continue;
+      const listingStart = listingEnd > 24n ? listingEnd - 24n : 1n;
+      const swapStart = swapEnd > 24n ? swapEnd - 24n : 1n;
+
+      const listingIds = [];
+      for (let id = listingStart; id <= listingEnd; id++) listingIds.push(id);
+      const swapIds = [];
+      for (let id = swapStart; id <= swapEnd; id++) swapIds.push(id);
+
+      const [listings, swaps] = await Promise.all([
+        Promise.all(listingIds.map((id) => reader.listings(id))),
+        Promise.all(swapIds.map((id) => reader.swaps(id))),
+      ]);
+
+      for (const l of listings) {
+        if (l.id === 0n) continue;
         if (onlyActive && !l.active) continue;
         const isEth = Number(l.kind) === 1;
         const priceText = isEth
@@ -1811,9 +1823,8 @@
           </div>`);
       }
 
-      for (let id = Math.max(1, swapEnd - 24); id <= swapEnd; id++) {
-        const s = await reader.swaps(id);
-        if (Number(s.id) === 0) continue;
+      for (const s of swaps) {
+        if (s.id === 0n) continue;
         if (onlyActive && !s.active) continue;
         const offCol = collectionNameByAddress(s.offeredNft);
         const reqCol = collectionNameByAddress(s.requestedNft);
