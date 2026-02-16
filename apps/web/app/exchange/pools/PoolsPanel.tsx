@@ -307,6 +307,7 @@ export function PoolsPanel() {
   const [amt1, setAmt1] = useState<string>("");
   const [autoAdjust, setAutoAdjust] = useState(true);
   const [lastEdited, setLastEdited] = useState<"amt0" | "amt1">("amt0");
+  const [autoAdjustNote, setAutoAdjustNote] = useState("");
   const [slippageBps, setSlippageBps] = useState<number>(100);
   const [rangeMode, setRangeMode] = useState<"full" | "custom">("full");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -551,6 +552,7 @@ export function PoolsPanel() {
     if (!editedTokenAddr || !otherTokenAddr) return;
     if (!editedStr) {
       // If user clears the edited field, clear the auto-filled companion.
+      if (autoAdjustNote) setAutoAdjustNote("");
       if (otherStr) {
         if (edited === "amt0") setAmt1("");
         else setAmt0("");
@@ -573,40 +575,35 @@ export function PoolsPanel() {
     const editedIsSorted1 = sorted.token1.toLowerCase() === (editedTokenAddr as string).toLowerCase();
     if (!editedIsSorted0 && !editedIsSorted1) return;
 
+    // Determine if the position is single-sided at the current price.
     const lo = sqrtA < sqrtB ? sqrtA : sqrtB;
     const hi = sqrtA > sqrtB ? sqrtA : sqrtB;
+    const singleSided = sqrtP <= lo ? "token0" : sqrtP >= hi ? "token1" : "";
 
-    let reqOtherSorted: bigint = 0n;
-    if (editedIsSorted0) {
-      if (sqrtP <= lo) {
-        // Below range: single-sided token0.
-        reqOtherSorted = 0n;
-      } else if (sqrtP >= hi) {
-        // Above range: single-sided token1; token0 does not contribute to liquidity at this price.
-        reqOtherSorted = 0n;
-      } else {
-        const L = liqForAmount0(sqrtP, sqrtB, editedAmt);
-        reqOtherSorted = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L).amount1;
-      }
-    } else if (editedIsSorted1) {
-      if (sqrtP >= hi) {
-        // Above range: single-sided token1.
-        reqOtherSorted = 0n;
-      } else if (sqrtP <= lo) {
-        // Below range: single-sided token0; token1 does not contribute to liquidity at this price.
-        reqOtherSorted = 0n;
-      } else {
-        const L = liqForAmount1(sqrtA, sqrtP, editedAmt);
-        reqOtherSorted = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L).amount0;
-      }
+    // If user edits the inactive side for a single-sided deposit, we cannot infer the required active-side amount.
+    if (singleSided === "token0" && editedIsSorted1) {
+      if (!autoAdjustNote) setAutoAdjustNote("Current price is below range: deposit uses token0 only. Enter token0 amount.");
+      return;
     }
+    if (singleSided === "token1" && editedIsSorted0) {
+      if (!autoAdjustNote) setAutoAdjustNote("Current price is above range: deposit uses token1 only. Enter token1 amount.");
+      return;
+    }
+    if (autoAdjustNote) setAutoAdjustNote("");
 
-    // Map required companion amount back into UI token order.
-    const reqOtherUi = (() => {
-      const otherIsSorted0 = sorted.token0.toLowerCase() === (otherTokenAddr as string).toLowerCase();
-      const raw = otherIsSorted0 ? reqOtherSorted : reqOtherSorted; // reqOtherSorted already corresponds to the other side.
-      return toInputString(raw, otherToken.decimals);
-    })();
+    // Compute liquidity from the edited side (in sorted token units), then derive the required amounts.
+    let L: bigint;
+    if (editedIsSorted0) {
+      L = sqrtP <= lo ? liqForAmount0(sqrtA, sqrtB, editedAmt) : liqForAmount0(sqrtP, sqrtB, editedAmt);
+    } else {
+      L = sqrtP >= hi ? liqForAmount1(sqrtA, sqrtB, editedAmt) : liqForAmount1(sqrtA, sqrtP, editedAmt);
+    }
+    const req = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L);
+
+    // For the non-edited UI input, determine whether it's sorted token0 or token1, then format the right bigint amount.
+    const otherIsSorted0 = sorted.token0.toLowerCase() === (otherTokenAddr as string).toLowerCase();
+    const reqOther = otherIsSorted0 ? req.amount0 : req.amount1;
+    const reqOtherUi = toInputString(reqOther, otherToken.decimals);
 
     if (edited === "amt0") {
       if (reqOtherUi !== (amt1 || "")) setAmt1(reqOtherUi);
@@ -1053,6 +1050,9 @@ export function PoolsPanel() {
           />
           Auto-adjust the other token to match the selected range
         </label>
+        {autoAdjust && autoAdjustNote ? (
+          <div className="text-[10px] text-lm-orange">{autoAdjustNote}</div>
+        ) : null}
 
         {/* Slippage */}
         <div className="space-y-1">
