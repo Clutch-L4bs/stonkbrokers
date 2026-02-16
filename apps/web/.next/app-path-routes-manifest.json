@@ -4,7 +4,7 @@
   "/exchange/page": "/exchange",
   "/launcher/page": "/launcher",
   "/marketplace/page": "/marketplace",
-  "/options/page": "/options",
   "/nft/page": "/nft",
+  "/options/page": "/options",
   "/page": "/"
 }

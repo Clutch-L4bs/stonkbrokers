@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Address, encodeFunctionData, formatEther, formatUnits, parseUnits } from "viem";
 import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
@@ -240,6 +241,7 @@ function TokenSelector({
 
 export function SwapPanel() {
   const { address, walletClient, requireCorrectChain } = useWallet();
+  const searchParams = useSearchParams();
 
   const [tokens, setTokens] = useState<ListedToken[]>([]);
   const [tokenInSelector, setTokenInSelector] = useState<string>("");
@@ -262,6 +264,7 @@ export function SwapPanel() {
   const [balanceOut, setBalanceOut] = useState<string>("");
   const [lastTxHash, setLastTxHash] = useState<string>("");
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appliedQueryRef = useRef<string>("");
 
   /* ── Derived token info ── */
 
@@ -333,6 +336,65 @@ export function SwapPanel() {
       .catch((e) => { setStatus(String(e?.message || e)); setStatusType("error"); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Allow deep-linking from other pages (Launcher, Marketplace, etc) without retyping addresses.
+  // Examples:
+  // - /exchange?out=0xToken&in=ETH
+  // - /exchange?token=0xToken (defaults to in=ETH)
+  // - /exchange?tokenIn=0xTokenA&tokenOut=0xTokenB
+  useEffect(() => {
+    const qIn = (searchParams.get("in") || searchParams.get("tokenIn") || "").trim();
+    const qOut = (searchParams.get("out") || searchParams.get("tokenOut") || searchParams.get("token") || "").trim();
+    if (!qIn && !qOut) return;
+
+    const key = `${qIn}|${qOut}`;
+    if (appliedQueryRef.current === key) return;
+
+    const isAddr = (s: string) => /^0x[0-9a-fA-F]{40}$/.test(s);
+    const isEth = (s: string) => {
+      const u = s.toUpperCase();
+      return u === "ETH" || u === "WETH" || u === ETH_VIRTUAL.address.toUpperCase();
+    };
+
+    const setFromQuery = (side: "in" | "out", raw: string) => {
+      if (!raw) return;
+      if (isEth(raw)) {
+        if (side === "in") setTokenInSelector(ETH_VIRTUAL.address);
+        else setTokenOutSelector(ETH_VIRTUAL.address);
+        return;
+      }
+
+      let addr = "";
+      if (isAddr(raw)) addr = raw;
+      else {
+        const match = tokens.find((t) => t.symbol.toUpperCase() === raw.toUpperCase());
+        if (match) addr = match.address;
+      }
+      if (!addr) return;
+
+      const inList = tokens.find((t) => t.address.toLowerCase() === addr.toLowerCase());
+      if (inList) {
+        if (side === "in") setTokenInSelector(inList.address);
+        else setTokenOutSelector(inList.address);
+      } else {
+        if (side === "in") {
+          setTokenInSelector("__custom__");
+          setCustomInAddr(addr);
+        } else {
+          setTokenOutSelector("__custom__");
+          setCustomOutAddr(addr);
+        }
+      }
+    };
+
+    // If only token/out provided, default to buying (in=ETH).
+    if (!qIn && qOut) setFromQuery("in", "ETH");
+    if (qIn) setFromQuery("in", qIn);
+    if (qOut) setFromQuery("out", qOut);
+
+    appliedQueryRef.current = key;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tokens]);
 
   /* ── Intent listener — auto-fill from IntentTerminal ── */
 

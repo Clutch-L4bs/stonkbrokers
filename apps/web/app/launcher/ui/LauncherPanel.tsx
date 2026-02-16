@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Address, decodeEventLog, formatUnits, parseEther, parseUnits } from "viem";
 import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
@@ -81,6 +81,7 @@ export function LauncherPanel() {
   const [finalizeEthTopUp, setFinalizeEthTopUp] = useState("");
   const [fee, setFee] = useState("3000");
   const [memeTokenAddr, setMemeTokenAddr] = useState<Address | "">("");
+  const [launchEthBalance, setLaunchEthBalance] = useState<bigint>(0n);
 
   /* ── Shared state ── */
   const [status, setStatus] = useState("");
@@ -240,7 +241,16 @@ export function LauncherPanel() {
       const sp = BigInt(sqrtPriceX96 || "0");
       const feeNum = Number(fee || "0");
       if (!sp) throw new Error("Set initial price to compute pool price");
-      const topUp = parseEther(finalizeEthTopUp || "0");
+      let topUp = 0n;
+      try {
+        topUp = parseEther((finalizeEthTopUp || "0").trim() || "0");
+      } catch {
+        throw new Error("Extra ETH for liquidity is invalid. Enter a valid number (or 0).");
+      }
+      // If the launch has not raised any ETH yet, finalization needs some ETH to seed the pool.
+      if (launchEthBalance === 0n && topUp === 0n) {
+        throw new Error("This launch has 0 ETH raised so far. Add a small ETH top-up (or run a sale first) to seed liquidity.");
+      }
 
       setStatus("Awaiting wallet signature...");
       const txHash = await walletClient.writeContract({
@@ -267,6 +277,25 @@ export function LauncherPanel() {
       setStatusType("error");
     } finally { setBusy(false); }
   }
+
+  // Track ETH available to seed liquidity (sale proceeds sit on the launch contract).
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshLaunchEth() {
+      if (!launchAddr || !/^0x[0-9a-fA-F]{40}$/.test(String(launchAddr))) {
+        setLaunchEthBalance(0n);
+        return;
+      }
+      try {
+        const b = await publicClient.getBalance({ address: launchAddr as Address });
+        if (!cancelled) setLaunchEthBalance(b);
+      } catch {
+        if (!cancelled) setLaunchEthBalance(0n);
+      }
+    }
+    refreshLaunchEth().catch(() => {});
+    return () => { cancelled = true; };
+  }, [launchAddr]);
 
   const statusColor = statusType === "success" ? "text-lm-green" : statusType === "error" ? "text-lm-red" : "text-lm-gray";
 
@@ -519,6 +548,16 @@ export function LauncherPanel() {
           <Input value={finalizeEthTopUp} onValueChange={setFinalizeEthTopUp} placeholder="0.0" />
           <div className="text-lm-terminal-lightgray text-[10px]">
             ETH raised from sales is automatically added to the pool. Add more here to deepen liquidity.
+            {launchAddr ? (
+              <span className="block mt-1">
+                ETH currently in launch contract: <span className="text-white lm-mono font-bold">{fmtEth(launchEthBalance)} ETH</span>
+              </span>
+            ) : null}
+            {launchAddr && launchEthBalance === 0n ? (
+              <span className="block mt-1 text-lm-orange">
+                If this is 0, you must top up some ETH (or sell tokens first) or finalization will revert.
+              </span>
+            ) : null}
           </div>
         </div>
 

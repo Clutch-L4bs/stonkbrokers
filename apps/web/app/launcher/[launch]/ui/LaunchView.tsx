@@ -438,7 +438,7 @@ export function LaunchView({ launch }: { launch: string }) {
         {/* Quick action links */}
         {isFinalized && (
           <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-lm-terminal-gray">
-            <Link href="/exchange" className="text-[10px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">
+            <Link href={`/exchange?in=ETH&out=${memeToken}`} className="text-[10px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">
               Trade on DEX
             </Link>
             {feeSplitter && feeSplitter !== ZERO_ADDR && (

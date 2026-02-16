@@ -566,7 +566,7 @@ function LaunchDetailModal({
           {/* Actions for finalized */}
           <div className="flex items-center gap-2 flex-wrap">
             {x.finalized && x.pool && x.pool !== ZERO && (
-              <Link href="/exchange" className="text-xs px-3 py-1.5 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors" onClick={onClose}>
+              <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-xs px-3 py-1.5 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors" onClick={onClose}>
                 Trade on DEX
               </Link>
             )}
@@ -882,7 +882,7 @@ function LaunchesIndex() {
                 {x.finalized && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {x.pool && x.pool !== ZERO && (
-                      <Link href="/exchange" className="text-[10px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">Trade</Link>
+                      <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-[10px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">Trade</Link>
                     )}
                     {x.stakingVault && x.stakingVault !== ZERO && (
                       <Link href={`/launcher/${x.launch}`} className="text-[10px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors">Stake</Link>
