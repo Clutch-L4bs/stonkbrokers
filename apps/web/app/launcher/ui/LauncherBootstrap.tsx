@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Address, formatEther, formatUnits, parseAbiItem, parseEther } from "viem";
+import { Button } from "../../components/Button";
 import { Panel } from "../../components/Terminal";
 import { TerminalTabs } from "../../components/Tabs";
 import { Input } from "../../components/Input";
@@ -20,6 +21,80 @@ import {
 import { IntentTerminal, IntentAction } from "../../components/IntentTerminal";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+
+function LauncherInfoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Stonk Launcher information"
+    >
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="relative w-full max-w-2xl bg-lm-terminal-darkgray border-4 border-lm-orange border-dashed p-4 md:p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-white font-bold text-lg lm-upper">How Stonk Launcher Works</div>
+            <div className="text-lm-gray text-xs mt-1">
+              Launch a token, create a Uniswap v3 pool, and share LP fees with stakers.
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close info">
+            Close
+          </Button>
+        </div>
+
+        <div className="space-y-3 text-sm text-lm-terminal-lightgray">
+          <div>
+            <div className="text-white font-bold text-xs lm-upper tracking-wider">1) Create a Launch</div>
+            <div className="mt-1">
+              Use the `Create` tab to set your token name/symbol, total supply, sale allocation, and sale price. This deploys a launch contract
+              and a token, and prepares the sale.
+            </div>
+          </div>
+
+          <div>
+            <div className="text-white font-bold text-xs lm-upper tracking-wider">2) Finalize and Create the Pool</div>
+            <div className="mt-1">
+              Finalizing creates the trading pool and initializes pricing. After finalization, trading is live on the `Exchange` page.
+            </div>
+          </div>
+
+          <div>
+            <div className="text-white font-bold text-xs lm-upper tracking-wider">3) LP Fees and Fee Splitting</div>
+            <div className="mt-1">
+              Trading fees accrue in the Uniswap v3 pool. The launch includes a fee splitter that can collect LP fees and route them to the staking
+              system for distribution.
+            </div>
+          </div>
+
+          <div>
+            <div className="text-white font-bold text-xs lm-upper tracking-wider">4) Stake to Earn Your Share</div>
+            <div className="mt-1">
+              Stake the launched token to earn a pro-rata share of the collected LP fees. You can manage staking in the `Stake/Yield` tab or by
+              opening a specific launch and using `Stake & Earn`. Staking positions have a minimum lock period (typically ~2 weeks).
+            </div>
+          </div>
+
+          <div className="text-[11px] text-lm-gray">
+            Tip: You can also use the intent terminal at the top (e.g. `launch PEPE PEP 1M`, `buy 0.01 ETH`, `stake 1000`, `claim rewards`).
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ── Human-friendly formatters ── */
 
@@ -1022,6 +1097,7 @@ export function LauncherBootstrap({ LauncherPanel }: { LauncherPanel: React.Comp
     []
   );
   const [active, setActive] = useState("launches");
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const handleIntent = useCallback((intent: IntentAction) => {
     const createTypes = ["launch_token", "finalize_launch"];
@@ -1043,12 +1119,20 @@ export function LauncherBootstrap({ LauncherPanel }: { LauncherPanel: React.Comp
       <Panel
         title="Stonk Launcher"
         hint="Launch meme coins with instant DEX liquidity, fee splitting, and staking rewards."
-        right={<TerminalTabs tabs={tabs} active={active} onChange={setActive} />}
+        right={(
+          <div className="flex items-center gap-2">
+            <TerminalTabs tabs={tabs} active={active} onChange={setActive} />
+            <Button variant="ghost" size="sm" onClick={() => setInfoOpen(true)} aria-label="Launcher information">
+              Info
+            </Button>
+          </div>
+        )}
       >
         {active === "launches" ? <LaunchesIndex /> : null}
         {active === "create" ? <LauncherPanel /> : null}
         {active === "stake" ? <StakeTab /> : null}
       </Panel>
+      <LauncherInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   );
 }
