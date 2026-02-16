@@ -29,34 +29,28 @@ const SLIPPAGE_OPTIONS = [
 /* ── Math utilities ── */
 
 const MAX_UINT160 = (2n ** 160n) - 1n;
+const MIN_TICK = -887272;
+const MAX_TICK = 887272;
 
 function fullRangeTicks(tickSpacing: number) {
-  const MIN_TICK = -887272;
-  const MAX_TICK = 887272;
-  const floor = (tick: number) => {
-    let floored = Math.trunc(tick / tickSpacing) * tickSpacing;
-    if (tick < 0 && floored > tick) floored -= tickSpacing;
-    return floored;
-  };
-  return { tickLower: floor(MIN_TICK), tickUpper: floor(MAX_TICK) };
+  // Uniswap v3 requires ticks be multiples of tickSpacing and within TickMath bounds.
+  const tickLower = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing;
+  const tickUpper = Math.floor(MAX_TICK / tickSpacing) * tickSpacing;
+  return { tickLower, tickUpper };
 }
 
-function clampTick(t: number) {
-  if (t < -887272) return -887272;
-  if (t > 887272) return 887272;
-  return t;
+function clampUsableTick(tick: number, tickSpacing: number) {
+  const minUsable = Math.ceil(MIN_TICK / tickSpacing) * tickSpacing;
+  const maxUsable = Math.floor(MAX_TICK / tickSpacing) * tickSpacing;
+  return Math.max(minUsable, Math.min(maxUsable, tick));
 }
 
-function floorTick(tick: number, tickSpacing: number) {
-  let floored = Math.trunc(tick / tickSpacing) * tickSpacing;
-  if (tick < 0 && floored > tick) floored -= tickSpacing;
-  return clampTick(floored);
+function floorUsableTick(tick: number, tickSpacing: number) {
+  return clampUsableTick(Math.floor(tick / tickSpacing) * tickSpacing, tickSpacing);
 }
 
-function ceilTick(tick: number, tickSpacing: number) {
-  const f = floorTick(tick, tickSpacing);
-  if (f === tick) return f;
-  return clampTick(f + tickSpacing);
+function ceilUsableTick(tick: number, tickSpacing: number) {
+  return clampUsableTick(Math.ceil(tick / tickSpacing) * tickSpacing, tickSpacing);
 }
 
 function tickToPrice(tick: number, dec0: number, dec1: number): number {
@@ -97,7 +91,7 @@ function scalePriceHumanToRawScaled(pHumanScaled1e18: bigint, dec0: number, dec1
 }
 
 function sqrtRatioAtTick(tick: number): bigint {
-  if (tick < -887272 || tick > 887272) throw new Error("tick out of range");
+  if (tick < MIN_TICK || tick > MAX_TICK) throw new Error("tick out of range");
   let absTick = tick < 0 ? -tick : tick;
   let ratio =
     (absTick & 0x1) !== 0 ? 0xfffcb933bd6fad37aa2d162d1a594001n : 0x100000000000000000000000000000000n;
@@ -193,6 +187,18 @@ function RangeVisualization({
 }) {
   if (!current || !Number.isFinite(current) || current <= 0) return null;
 
+  const W = 520;
+  const H = 140;
+  const padL = 44;
+  const padR = 16;
+  const padT = 16;
+  const padB = 34;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const x0 = padL;
+  const y0 = padT;
+  const yMax = padT + innerH;
+
   if (mode === "full" || !lower || !upper || !Number.isFinite(lower) || !Number.isFinite(upper) || lower <= 0 || upper <= 0 || lower >= upper) {
     return (
       <div className="bg-lm-black border border-lm-terminal-gray p-2 space-y-1 text-[10px]">
@@ -200,18 +206,34 @@ function RangeVisualization({
           <span className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">Range</span>
           <span className="lm-badge lm-badge-gray">Full Range</span>
         </div>
-        <svg viewBox="0 0 320 90" className="w-full h-[90px] border border-lm-terminal-gray bg-lm-terminal-darkgray">
-          <rect x="0" y="0" width="320" height="90" fill="transparent" />
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[140px] border border-lm-terminal-gray bg-lm-terminal-darkgray">
+          <rect x="0" y="0" width={W} height={H} fill="transparent" />
+
           {/* grid */}
-          <line x1="40" y1="65" x2="308" y2="65" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
-          <line x1="40" y1="20" x2="308" y2="20" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-          <line x1="40" y1="42" x2="308" y2="42" stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-          {/* current marker (centered for full range) */}
-          <line x1="174" y1="18" x2="174" y2="68" stroke="rgba(255,255,255,0.75)" strokeWidth="2" />
+          <line x1={x0} y1={yMax} x2={W - padR} y2={yMax} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+          <line x1={x0} y1={y0} x2={W - padR} y2={y0} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+          <line x1={x0} y1={y0 + innerH * 0.5} x2={W - padR} y2={y0 + innerH * 0.5} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+          <line x1={x0 + innerW * 0.25} y1={y0} x2={x0 + innerW * 0.25} y2={yMax} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+          <line x1={x0 + innerW * 0.5} y1={y0} x2={x0 + innerW * 0.5} y2={yMax} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+          <line x1={x0 + innerW * 0.75} y1={y0} x2={x0 + innerW * 0.75} y2={yMax} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+
+          {/* stylized curve */}
+          <path
+            d={`M ${x0} ${yMax} C ${x0 + innerW * 0.25} ${y0 + innerH * 0.1}, ${x0 + innerW * 0.75} ${y0 + innerH * 0.1}, ${x0 + innerW} ${yMax}`}
+            fill="rgba(207,255,4,0.10)"
+            stroke="rgba(207,255,4,0.35)"
+            strokeWidth="2"
+          />
+
+          {/* current marker */}
+          <line x1={x0 + innerW * 0.5} y1={y0} x2={x0 + innerW * 0.5} y2={yMax + 2} stroke="rgba(255,255,255,0.9)" strokeWidth="2" />
+
           {/* labels */}
-          <text x="40" y="82" fill="rgba(255,255,255,0.6)" fontSize="10">0</text>
-          <text x="174" y="82" fill="rgba(255,255,255,0.9)" fontSize="10" textAnchor="middle">{fmtHumanPrice(current)} {quoteLabel}</text>
-          <text x="308" y="82" fill="rgba(255,255,255,0.6)" fontSize="10" textAnchor="end">∞</text>
+          <text x={x0} y={H - 12} fill="rgba(255,255,255,0.6)" fontSize="11">0</text>
+          <text x={x0 + innerW * 0.5} y={H - 12} fill="rgba(255,255,255,0.9)" fontSize="11" textAnchor="middle" className="lm-mono">
+            {fmtHumanPrice(current)} {quoteLabel}
+          </text>
+          <text x={W - padR} y={H - 12} fill="rgba(255,255,255,0.6)" fontSize="11" textAnchor="end">∞</text>
         </svg>
       </div>
     );
@@ -225,18 +247,28 @@ function RangeVisualization({
   const cur = Math.log(current);
   const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
   const xNorm = (logP: number) => clamp01((logP - lo) / (hi - lo));
+  const xCur = x0 + xNorm(cur) * innerW;
+  const xLo = x0;
+  const xHi = x0 + innerW;
 
-  const W = 320;
-  const H = 90;
-  const padL = 40;
-  const padR = 12;
-  const top = 12;
-  const base = 65;
-  const innerW = W - padL - padR;
-
-  const xCur = padL + xNorm(cur) * innerW;
-  const xLo = padL;
-  const xHi = padL + innerW;
+  // Curve resembling Uniswap/Camelot: a smooth concentration hump within the selected range.
+  const n = 60;
+  const sigma = 0.18; // narrower = more "concentrated"
+  const curT = xNorm(cur);
+  const pts: Array<[number, number]> = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    // gaussian around current price (purely visual)
+    const g = Math.exp(-Math.pow((t - curT) / sigma, 2));
+    const y = yMax - g * (innerH * 0.85);
+    pts.push([x0 + t * innerW, y]);
+  }
+  const d = [
+    `M ${x0} ${yMax}`,
+    `L ${pts.map(([x, y]) => `${x.toFixed(2)} ${y.toFixed(2)}`).join(" L ")}`,
+    `L ${x0 + innerW} ${yMax}`,
+    "Z"
+  ].join(" ");
 
   return (
     <div className="bg-lm-black border border-lm-terminal-gray p-2 space-y-1 text-[10px]">
@@ -246,28 +278,34 @@ function RangeVisualization({
           {inRange ? "In Range" : "Out of Range"}
         </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[90px] border border-lm-terminal-gray bg-lm-terminal-darkgray">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[140px] border border-lm-terminal-gray bg-lm-terminal-darkgray">
         <rect x="0" y="0" width={W} height={H} fill="transparent" />
 
         {/* grid */}
-        <line x1={padL} y1={base} x2={W - padR} y2={base} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
-        <line x1={padL} y1={top} x2={W - padR} y2={top} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-        <line x1={padL} y1={(top + base) / 2} x2={W - padR} y2={(top + base) / 2} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-        <line x1={padL + innerW * 0.25} y1={top} x2={padL + innerW * 0.25} y2={base} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-        <line x1={padL + innerW * 0.5} y1={top} x2={padL + innerW * 0.5} y2={base} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
-        <line x1={padL + innerW * 0.75} y1={top} x2={padL + innerW * 0.75} y2={base} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={x0} y1={yMax} x2={W - padR} y2={yMax} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+        <line x1={x0} y1={y0} x2={W - padR} y2={y0} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={x0} y1={y0 + innerH * 0.5} x2={W - padR} y2={y0 + innerH * 0.5} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={x0 + innerW * 0.25} y1={y0} x2={x0 + innerW * 0.25} y2={yMax} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={x0 + innerW * 0.5} y1={y0} x2={x0 + innerW * 0.5} y2={yMax} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+        <line x1={x0 + innerW * 0.75} y1={y0} x2={x0 + innerW * 0.75} y2={yMax} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
 
-        {/* shaded range band */}
-        <rect x={xLo} y={top + 1} width={xHi - xLo} height={base - top - 2} fill={inRange ? "rgba(0,255,0,0.10)" : "rgba(207,255,4,0.08)"} />
+        {/* dim outside range areas */}
+        <rect x={x0} y={y0} width={innerW} height={innerH} fill="rgba(0,0,0,0.15)" />
+        {/* highlight inside range */}
+        <rect x={xLo} y={y0} width={xHi - xLo} height={innerH} fill={inRange ? "rgba(0,255,0,0.10)" : "rgba(207,255,4,0.08)"} />
+
+        {/* concentration curve (visual) */}
+        <path d={d} fill="rgba(255,255,255,0.06)" />
+        <path d={d.replace("Z", "")} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="2" />
 
         {/* current marker */}
-        <line x1={xCur} y1={top} x2={xCur} y2={base + 3} stroke="rgba(255,255,255,0.85)" strokeWidth="2" />
+        <line x1={xCur} y1={y0} x2={xCur} y2={yMax + 2} stroke="rgba(255,255,255,0.9)" strokeWidth="2" />
 
         {/* axis labels */}
-        <text x={padL} y={H - 10} fill="rgba(255,255,255,0.65)" fontSize="10" className="lm-mono">{fmtHumanPrice(lower)}</text>
-        <text x={xCur} y={H - 10} fill="rgba(255,255,255,0.95)" fontSize="10" textAnchor="middle" className="lm-mono">{fmtHumanPrice(current)}</text>
-        <text x={W - padR} y={H - 10} fill="rgba(255,255,255,0.65)" fontSize="10" textAnchor="end" className="lm-mono">{fmtHumanPrice(upper)}</text>
-        <text x={W - padR} y={12} fill="rgba(255,255,255,0.45)" fontSize="9" textAnchor="end">{quoteLabel}</text>
+        <text x={x0} y={H - 12} fill="rgba(255,255,255,0.65)" fontSize="11" className="lm-mono">{fmtHumanPrice(lower)}</text>
+        <text x={xCur} y={H - 12} fill="rgba(255,255,255,0.95)" fontSize="11" textAnchor="middle" className="lm-mono">{fmtHumanPrice(current)}</text>
+        <text x={W - padR} y={H - 12} fill="rgba(255,255,255,0.65)" fontSize="11" textAnchor="end" className="lm-mono">{fmtHumanPrice(upper)}</text>
+        <text x={W - padR} y={14} fill="rgba(255,255,255,0.45)" fontSize="10" textAnchor="end">{quoteLabel}</text>
       </svg>
     </div>
   );
@@ -454,8 +492,8 @@ export function PoolsPanel() {
 
     const tickMin = Math.floor(tMinRaw);
     const tickMax = Math.floor(tMaxRaw);
-    const tickLower = floorTick(tickMin, feeMeta.tickSpacing);
-    const tickUpper = ceilTick(tickMax, feeMeta.tickSpacing);
+    const tickLower = floorUsableTick(tickMin, feeMeta.tickSpacing);
+    const tickUpper = ceilUsableTick(tickMax, feeMeta.tickSpacing);
     if (!Number.isFinite(tickLower) || !Number.isFinite(tickUpper)) return { ticks: null, error: "Invalid tick calculation." };
     if (tickLower >= tickUpper) return { ticks: null, error: "Range too narrow for this fee tier. Widen the range." };
 

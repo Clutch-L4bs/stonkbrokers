@@ -1,9 +1,9 @@
 {
   "/_not-found/page": "/_not-found",
+  "/launcher/[launch]/page": "/launcher/[launch]",
+  "/exchange/page": "/exchange",
   "/launcher/page": "/launcher",
   "/marketplace/page": "/marketplace",
-  "/exchange/page": "/exchange",
-  "/launcher/[launch]/page": "/launcher/[launch]",
   "/options/page": "/options",
   "/nft/page": "/nft",
   "/page": "/"
