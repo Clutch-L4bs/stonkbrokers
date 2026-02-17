@@ -26,6 +26,18 @@ const SLIPPAGE_OPTIONS = [
   { label: "3%", bps: 300 }
 ];
 
+// Virtual "native ETH" option. On-chain, pools/positions use WETH (ERC20) not ETH.
+const ETH_VIRTUAL: ListedToken = {
+  address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as Address,
+  symbol: "ETH",
+  decimals: 18,
+  logoURI: ""
+};
+
+function isEthVirtual(addr: string): boolean {
+  return addr.toLowerCase() === ETH_VIRTUAL.address.toLowerCase();
+}
+
 /* ── Math utilities ── */
 
 const MAX_UINT160 = (2n ** 160n) - 1n;
@@ -335,8 +347,9 @@ export function PoolsPanel() {
   const { address, walletClient, requireCorrectChain, connect } = useWallet();
 
   const [tokens, setTokens] = useState<ListedToken[]>([]);
-  const [token0, setToken0] = useState<Address | "">("");
-  const [token1, setToken1] = useState<Address | "">("");
+  // Store selector values, not necessarily on-chain addresses (ETH is virtual).
+  const [token0Sel, setToken0Sel] = useState<string>("");
+  const [token1Sel, setToken1Sel] = useState<string>("");
   const [fee, setFee] = useState<number>(3000);
   const [initialPrice1Per0, setInitialPrice1Per0] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -356,20 +369,61 @@ export function PoolsPanel() {
   const [bal0, setBal0] = useState<string>("");
   const [bal1, setBal1] = useState<string>("");
 
-  const t0 = useMemo(() => tokens.find((t) => t.address === token0), [tokens, token0]);
-  const t1 = useMemo(() => tokens.find((t) => t.address === token1), [tokens, token1]);
+  const tokenOptions = useMemo(() => [ETH_VIRTUAL, ...tokens], [tokens]);
+
+  const token0 = useMemo(() => {
+    if (!token0Sel) return { selector: "", addr: "" as Address, meta: null as ListedToken | null, isNativeEth: false };
+    if (isEthVirtual(token0Sel)) {
+      if (!config.weth) return { selector: token0Sel, addr: "" as Address, meta: null, isNativeEth: true };
+      return {
+        selector: token0Sel,
+        addr: config.weth as Address,
+        meta: { ...ETH_VIRTUAL, address: config.weth as Address },
+        isNativeEth: true
+      };
+    }
+    const found = tokens.find((t) => t.address.toLowerCase() === token0Sel.toLowerCase());
+    return found ? { selector: token0Sel, addr: found.address, meta: found, isNativeEth: false } : { selector: token0Sel, addr: "" as Address, meta: null, isNativeEth: false };
+  }, [token0Sel, tokens]);
+
+  const token1 = useMemo(() => {
+    if (!token1Sel) return { selector: "", addr: "" as Address, meta: null as ListedToken | null, isNativeEth: false };
+    if (isEthVirtual(token1Sel)) {
+      if (!config.weth) return { selector: token1Sel, addr: "" as Address, meta: null, isNativeEth: true };
+      return {
+        selector: token1Sel,
+        addr: config.weth as Address,
+        meta: { ...ETH_VIRTUAL, address: config.weth as Address },
+        isNativeEth: true
+      };
+    }
+    const found = tokens.find((t) => t.address.toLowerCase() === token1Sel.toLowerCase());
+    return found ? { selector: token1Sel, addr: found.address, meta: found, isNativeEth: false } : { selector: token1Sel, addr: "" as Address, meta: null, isNativeEth: false };
+  }, [token1Sel, tokens]);
+
+  const t0 = token0.meta;
+  const t1 = token1.meta;
   const feeMeta = useMemo(() => FEE_OPTIONS.find((f) => f.fee === fee), [fee]);
 
   const sorted = useMemo(() => {
-    if (!token0 || !token1) return null;
-    if ((token0 as string).toLowerCase() === (token1 as string).toLowerCase()) return null;
-    const a = (token0 as string).toLowerCase() < (token1 as string).toLowerCase() ? (token0 as Address) : (token1 as Address);
-    const b = (token0 as string).toLowerCase() < (token1 as string).toLowerCase() ? (token1 as Address) : (token0 as Address);
+    if (!token0.addr || !token1.addr) return null;
+    if (token0.addr.toLowerCase() === token1.addr.toLowerCase()) return null;
+    const a = token0.addr.toLowerCase() < token1.addr.toLowerCase() ? token0.addr : token1.addr;
+    const b = token0.addr.toLowerCase() < token1.addr.toLowerCase() ? token1.addr : token0.addr;
     return { token0: a, token1: b };
-  }, [token0, token1]);
+  }, [token0.addr, token1.addr]);
 
-  const s0 = useMemo(() => (sorted ? tokens.find((t) => t.address === sorted.token0) : undefined), [sorted, tokens]);
-  const s1 = useMemo(() => (sorted ? tokens.find((t) => t.address === sorted.token1) : undefined), [sorted, tokens]);
+  const s0 = useMemo(() => {
+    if (!sorted) return undefined;
+    const match0 = token0.addr.toLowerCase() === sorted.token0.toLowerCase() ? token0.meta : token1.meta;
+    return match0 || tokens.find((t) => t.address.toLowerCase() === sorted.token0.toLowerCase());
+  }, [sorted, token0.addr, token0.meta, token1.meta, tokens]);
+
+  const s1 = useMemo(() => {
+    if (!sorted) return undefined;
+    const match1 = token0.addr.toLowerCase() === sorted.token1.toLowerCase() ? token0.meta : token1.meta;
+    return match1 || tokens.find((t) => t.address.toLowerCase() === sorted.token1.toLowerCase());
+  }, [sorted, token0.addr, token0.meta, token1.meta, tokens]);
 
   const computedSqrtPriceX96 = useMemo(() => {
     try {
@@ -442,20 +496,31 @@ export function PoolsPanel() {
   useEffect(() => {
     if (!address) { setBal0(""); setBal1(""); return; }
     (async () => {
-      if (token0 && t0) {
+      if (token0.addr && t0) {
         try {
-          const b = (await publicClient.readContract({ address: token0, abi: ERC20Abi, functionName: "balanceOf", args: [address] })) as bigint;
-          setBal0(formatUnits(b, t0.decimals));
+          if (token0.isNativeEth) {
+            const b = await publicClient.getBalance({ address });
+            setBal0(formatUnits(b, 18));
+          } else {
+            const b = (await publicClient.readContract({ address: token0.addr, abi: ERC20Abi, functionName: "balanceOf", args: [address] })) as bigint;
+            setBal0(formatUnits(b, t0.decimals));
+          }
         } catch { setBal0("?"); }
       } else { setBal0(""); }
-      if (token1 && t1) {
+
+      if (token1.addr && t1) {
         try {
-          const b = (await publicClient.readContract({ address: token1, abi: ERC20Abi, functionName: "balanceOf", args: [address] })) as bigint;
-          setBal1(formatUnits(b, t1.decimals));
+          if (token1.isNativeEth) {
+            const b = await publicClient.getBalance({ address });
+            setBal1(formatUnits(b, 18));
+          } else {
+            const b = (await publicClient.readContract({ address: token1.addr, abi: ERC20Abi, functionName: "balanceOf", args: [address] })) as bigint;
+            setBal1(formatUnits(b, t1.decimals));
+          }
         } catch { setBal1("?"); }
       } else { setBal1(""); }
     })();
-  }, [address, token0, token1, t0, t1]);
+  }, [address, token0.addr, token0.isNativeEth, token1.addr, token1.isNativeEth, t0, t1]);
 
   const rangeState = useMemo(() => {
     if (!feeMeta) return { ticks: null as null | { tickLower: number; tickUpper: number }, error: "" };
@@ -548,8 +613,8 @@ export function PoolsPanel() {
         return { used0: 0n, used1: 0n, desired0: 0n, desired1: 0n, leftover0: 0n, leftover1: 0n, mode: "unknown" as const, note: "Enter amounts to see preview." };
       }
       if (!sorted) return null;
-      const amount0Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a0In : a1In;
-      const amount1Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a1In : a0In;
+      const amount0Desired = sorted.token0.toLowerCase() === token0.addr.toLowerCase() ? a0In : a1In;
+      const amount1Desired = sorted.token0.toLowerCase() === token0.addr.toLowerCase() ? a1In : a0In;
       let L: bigint;
       const sqrtP = effectiveSqrtP;
       const lo = sqrtA < sqrtB ? sqrtA : sqrtB;
@@ -574,7 +639,7 @@ export function PoolsPanel() {
     } catch (e: any) {
       return { used0: 0n, used1: 0n, desired0: 0n, desired1: 0n, leftover0: 0n, leftover1: 0n, mode: "unknown" as const, note: String(e?.message || e) };
     }
-  }, [amt0, amt1, effectiveSqrtP, rangeTicks, s0, s1, sorted, t0, t1, token0]);
+  }, [amt0, amt1, effectiveSqrtP, rangeTicks, s0, s1, sorted, t0, t1, token0.addr]);
 
   // Auto-adjust the other amount for the selected range at the current price.
   useEffect(() => {
@@ -583,8 +648,8 @@ export function PoolsPanel() {
     const edited = lastEdited;
     const editedStr = edited === "amt0" ? (amt0 || "").trim() : (amt1 || "").trim();
     const otherStr = edited === "amt0" ? (amt1 || "").trim() : (amt0 || "").trim();
-    const editedTokenAddr = edited === "amt0" ? token0 : token1;
-    const otherTokenAddr = edited === "amt0" ? token1 : token0;
+    const editedTokenAddr = edited === "amt0" ? token0.addr : token1.addr;
+    const otherTokenAddr = edited === "amt0" ? token1.addr : token0.addr;
     const editedToken = edited === "amt0" ? t0 : t1;
     const otherToken = edited === "amt0" ? t1 : t0;
     if (!editedTokenAddr || !otherTokenAddr) return;
@@ -609,8 +674,8 @@ export function PoolsPanel() {
     const sqrtB = sqrtRatioAtTick(rangeTicks.tickUpper);
     const sqrtP = effectiveSqrtP;
 
-    const editedIsSorted0 = sorted.token0.toLowerCase() === (editedTokenAddr as string).toLowerCase();
-    const editedIsSorted1 = sorted.token1.toLowerCase() === (editedTokenAddr as string).toLowerCase();
+    const editedIsSorted0 = sorted.token0.toLowerCase() === editedTokenAddr.toLowerCase();
+    const editedIsSorted1 = sorted.token1.toLowerCase() === editedTokenAddr.toLowerCase();
     if (!editedIsSorted0 && !editedIsSorted1) return;
 
     // Determine if the position is single-sided at the current price.
@@ -639,7 +704,7 @@ export function PoolsPanel() {
     const req = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L);
 
     // For the non-edited UI input, determine whether it's sorted token0 or token1, then format the right bigint amount.
-    const otherIsSorted0 = sorted.token0.toLowerCase() === (otherTokenAddr as string).toLowerCase();
+    const otherIsSorted0 = sorted.token0.toLowerCase() === otherTokenAddr.toLowerCase();
     const reqOther = otherIsSorted0 ? req.amount0 : req.amount1;
     const reqOtherUi = toInputString(reqOther, otherToken.decimals);
 
@@ -655,8 +720,8 @@ export function PoolsPanel() {
     fetchWhitelistedTokens()
       .then((list) => {
         setTokens(list);
-        if (!token0 && list[0]) setToken0(list[0].address);
-        if (!token1 && list[1]) setToken1(list[1].address);
+        if (!token0Sel) setToken0Sel(ETH_VIRTUAL.address);
+        if (!token1Sel && list[0]) setToken1Sel(list[0].address);
       })
       .catch((e) => { setStatus(String(e?.message || e)); setStatusType("error"); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -669,16 +734,18 @@ export function PoolsPanel() {
   useIntentListener(useCallback((intent: IntentAction) => {
     if (intent.type !== "add_liquidity" && intent.type !== "create_pool") return;
     const toks = tokensRef.current;
-    const findToken = (sym?: string): Address | "" => {
+    const findToken = (sym?: string): string => {
       if (!sym) return "";
       const upper = sym.toUpperCase();
+      if (upper === "ETH") return ETH_VIRTUAL.address;
+      if (upper === "WETH" && config.weth) return config.weth;
       const match = toks.find((t) => t.symbol.toUpperCase() === upper);
       return match?.address || "";
     };
     const t0Addr = findToken(intent.token0);
     const t1Addr = findToken(intent.token1);
-    if (t0Addr) setToken0(t0Addr);
-    if (t1Addr) setToken1(t1Addr);
+    if (t0Addr) setToken0Sel(t0Addr);
+    if (t1Addr) setToken1Sel(t1Addr);
     if (intent.fee) setFee(Number(intent.fee));
     if (intent.type === "create_pool" && intent.price) setInitialPrice1Per0(intent.price);
     if (intent.type === "add_liquidity") {
@@ -744,7 +811,7 @@ export function PoolsPanel() {
 
   async function addLiquidity() {
     if (!address) { setStatus("Connect wallet."); setStatusType("error"); return; }
-    if (!config.positionManager || !token0 || !token1 || !t0 || !t1 || !feeMeta || !sorted) return;
+    if (!config.positionManager || !token0.addr || !token1.addr || !t0 || !t1 || !feeMeta || !sorted) return;
     if (!rangeTicks) { setStatus("Invalid price range."); setStatusType("error"); return; }
     setBusy(true);
     try {
@@ -755,8 +822,8 @@ export function PoolsPanel() {
       if (!walletClient) throw new Error("No wallet client");
 
       const { tickLower, tickUpper } = rangeTicks;
-      const amount0Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a0 : a1;
-      const amount1Desired = sorted.token0.toLowerCase() === (token0 as string).toLowerCase() ? a1 : a0;
+      const amount0Desired = sorted.token0.toLowerCase() === token0.addr.toLowerCase() ? a0 : a1;
+      const amount1Desired = sorted.token0.toLowerCase() === token0.addr.toLowerCase() ? a1 : a0;
 
       const sqrtP = effectiveSqrtP;
       if (!sqrtP) {
@@ -779,13 +846,26 @@ export function PoolsPanel() {
       }
       const used = amountsForLiquidity(sqrtP, sqrtA, sqrtB, L);
 
-      await ensureAllowance(address, config.positionManager, token0, a0);
-      await ensureAllowance(address, config.positionManager, token1, a1);
-
       const slip = BigInt(Math.max(0, Math.min(3000, slippageBps)));
       const amount0Min = (used.amount0 * (10_000n - slip)) / 10_000n;
       const amount1Min = (used.amount1 * (10_000n - slip)) / 10_000n;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 10);
+
+      const nativeValue = (() => {
+        // If user selected native ETH on one side, we pay that side via msg.value and let NPM wrap to WETH.
+        // (Pools are always WETH on-chain, never native ETH.)
+        const t0IsNative = token0.isNativeEth;
+        const t1IsNative = token1.isNativeEth;
+        if (t0IsNative && token0.addr.toLowerCase() === sorted.token0.toLowerCase()) return amount0Desired;
+        if (t0IsNative && token0.addr.toLowerCase() === sorted.token1.toLowerCase()) return amount1Desired;
+        if (t1IsNative && token1.addr.toLowerCase() === sorted.token0.toLowerCase()) return amount0Desired;
+        if (t1IsNative && token1.addr.toLowerCase() === sorted.token1.toLowerCase()) return amount1Desired;
+        return 0n;
+      })();
+
+      // Approvals: skip the native ETH side (paid via msg.value).
+      if (!token0.isNativeEth) await ensureAllowance(address, config.positionManager, token0.addr, a0);
+      if (!token1.isNativeEth) await ensureAllowance(address, config.positionManager, token1.addr, a1);
 
       if (!poolAddr) {
         // First mint for a pair is often easiest as a single tx: create+initialize+mint via multicall.
@@ -812,12 +892,15 @@ export function PoolsPanel() {
             recipient: address, deadline
           }]
         });
+        const calls = nativeValue > 0n
+          ? [data0, data1, encodeFunctionData({ abi: NonfungiblePositionManagerAbi, functionName: "refundETH", args: [] })]
+          : [data0, data1];
         const hash = await walletClient.writeContract({
           address: config.positionManager,
           abi: NonfungiblePositionManagerAbi,
           functionName: "multicall",
-          args: [[data0, data1]],
-          value: 0n,
+          args: [calls],
+          value: nativeValue,
           chain: robinhoodTestnet,
           account: address
         });
@@ -831,14 +914,26 @@ export function PoolsPanel() {
         }
       } else {
         setStatus(`Minting LP: ${amt0 || "0"} ${t0.symbol} + ${amt1 || "0"} ${t1.symbol}...`); setStatusType("info");
-        const hash = await walletClient.writeContract({
-          address: config.positionManager, abi: NonfungiblePositionManagerAbi, functionName: "mint",
+        const mintData = encodeFunctionData({
+          abi: NonfungiblePositionManagerAbi,
+          functionName: "mint",
           args: [{
             token0: sorted.token0, token1: sorted.token1, fee, tickLower, tickUpper,
             amount0Desired, amount1Desired, amount0Min, amount1Min,
             recipient: address, deadline
-          }],
-          value: 0n, chain: robinhoodTestnet, account: address
+          }]
+        });
+        const calls = nativeValue > 0n
+          ? [mintData, encodeFunctionData({ abi: NonfungiblePositionManagerAbi, functionName: "refundETH", args: [] })]
+          : [mintData];
+        const hash = await walletClient.writeContract({
+          address: config.positionManager,
+          abi: NonfungiblePositionManagerAbi,
+          functionName: "multicall",
+          args: [calls],
+          value: nativeValue,
+          chain: robinhoodTestnet,
+          account: address
         });
         setStatus("Confirming on-chain...");
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -857,7 +952,7 @@ export function PoolsPanel() {
   }
 
   const statusColor = statusType === "success" ? "text-lm-green" : statusType === "error" ? "text-lm-red" : "text-lm-gray";
-  const pairWarning = token0 && token1 && (token0 as string).toLowerCase() === (token1 as string).toLowerCase();
+  const pairWarning = token0.addr && token1.addr && token0.addr.toLowerCase() === token1.addr.toLowerCase();
 
   return (
     <div className="space-y-3">
@@ -869,12 +964,12 @@ export function PoolsPanel() {
             <div className="text-lm-terminal-lightgray text-xs">Token A</div>
             <select
               className="w-full bg-lm-black border border-lm-terminal-gray hover:border-lm-orange p-2 text-sm h-9 text-white font-bold transition-colors disabled:opacity-40"
-              value={token0}
-              onChange={(e) => setToken0(e.target.value as Address)}
+              value={token0Sel}
+              onChange={(e) => setToken0Sel(e.target.value)}
               disabled={busy}
             >
               {tokens.length === 0 && <option value="" disabled>Loading tokens...</option>}
-              {tokens.map((t) => (
+              {tokenOptions.map((t) => (
                 <option key={t.address} value={t.address}>{t.symbol}</option>
               ))}
             </select>
@@ -883,23 +978,33 @@ export function PoolsPanel() {
                 Balance: <span className="text-white">{fmtBal(bal0)}</span>
               </div>
             )}
+            {token0.isNativeEth && (
+              <div className="text-[9px] text-lm-terminal-lightgray">
+                Uses native ETH; wraps to WETH inside the position manager
+              </div>
+            )}
           </div>
           <div className="space-y-1">
             <div className="text-lm-terminal-lightgray text-xs">Token B</div>
             <select
               className="w-full bg-lm-black border border-lm-terminal-gray hover:border-lm-orange p-2 text-sm h-9 text-white font-bold transition-colors disabled:opacity-40"
-              value={token1}
-              onChange={(e) => setToken1(e.target.value as Address)}
+              value={token1Sel}
+              onChange={(e) => setToken1Sel(e.target.value)}
               disabled={busy}
             >
               {tokens.length === 0 && <option value="" disabled>Loading tokens...</option>}
-              {tokens.map((t) => (
+              {tokenOptions.map((t) => (
                 <option key={t.address} value={t.address}>{t.symbol}</option>
               ))}
             </select>
             {bal1 && (
               <div className="text-[10px] text-lm-terminal-lightgray lm-mono">
                 Balance: <span className="text-white">{fmtBal(bal1)}</span>
+              </div>
+            )}
+            {token1.isNativeEth && (
+              <div className="text-[9px] text-lm-terminal-lightgray">
+                Uses native ETH; wraps to WETH inside the position manager
               </div>
             )}
           </div>

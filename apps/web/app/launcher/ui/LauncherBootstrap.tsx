@@ -22,6 +22,10 @@ import { IntentTerminal, IntentAction } from "../../components/IntentTerminal";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 
+function isTradingLaunch(x: { finalized: boolean; pool?: Address }): boolean {
+  return Boolean(x.finalized || (x.pool && x.pool !== ZERO));
+}
+
 function LauncherInfoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   useEffect(() => {
     if (!open) return;
@@ -176,8 +180,147 @@ type LaunchData = {
   saleSupply: bigint;
   priceWeiPerToken: bigint;
   remaining: bigint;
+  blockNumber?: bigint;
   blockTimestamp?: number;
 };
+
+type LaunchCacheEntryV1 = {
+  v: 1;
+  launch: Address;
+  creator: Address;
+  token: Address;
+  symbol: string;
+  name: string;
+  imageURI: string;
+  finalized?: boolean;
+  pool?: Address;
+  feeSplitter?: Address;
+  stakingVault?: Address;
+  sold?: string;
+  saleSupply?: string;
+  priceWeiPerToken?: string;
+  remaining?: string;
+  blockNumber?: string;
+  blockTimestamp?: number;
+  lastUpdatedAt?: number;
+};
+
+function cacheKeyForLaunches(factory: Address): string {
+  return `stonk.launches.v1.${config.chainId}.${factory.toLowerCase()}`;
+}
+
+function indexStateKey(factory: Address): string {
+  return `stonk.launches.indexState.v1.${config.chainId}.${factory.toLowerCase()}`;
+}
+
+function loadIndexedToBlock(factory: Address): bigint | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(indexStateKey(factory));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as any;
+    const bn = safeParseBigInt(parsed?.indexedToBlock);
+    return bn ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function saveIndexedToBlock(factory: Address, indexedToBlock: bigint) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(indexStateKey(factory), JSON.stringify({ v: 1, indexedToBlock: indexedToBlock.toString() }));
+  } catch {
+    // best-effort
+  }
+}
+
+function safeParseBigInt(v: unknown): bigint | undefined {
+  if (typeof v !== "string" || !/^\d+$/.test(v)) return undefined;
+  try { return BigInt(v); } catch { return undefined; }
+}
+
+function loadLaunchCache(factory: Address): LaunchData[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(cacheKeyForLaunches(factory));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    const out: LaunchData[] = [];
+    for (const e of parsed) {
+      const x = e as Partial<LaunchCacheEntryV1>;
+      if (x.v !== 1) continue;
+      if (!x.launch || !x.creator || !x.token) continue;
+      // Basic sanity on addresses; if these look wrong, ignore the entry.
+      if (!/^0x[0-9a-fA-F]{40}$/.test(String(x.launch))) continue;
+      if (!/^0x[0-9a-fA-F]{40}$/.test(String(x.creator))) continue;
+      if (!/^0x[0-9a-fA-F]{40}$/.test(String(x.token))) continue;
+
+      out.push({
+        launch: x.launch,
+        creator: x.creator,
+        token: x.token,
+        symbol: x.symbol || "TOKEN",
+        name: x.name || "LAUNCH",
+        imageURI: x.imageURI || "",
+        finalized: Boolean(x.finalized),
+        pool: x.pool,
+        feeSplitter: x.feeSplitter,
+        stakingVault: x.stakingVault,
+        sold: safeParseBigInt(x.sold) ?? 0n,
+        saleSupply: safeParseBigInt(x.saleSupply) ?? 0n,
+        priceWeiPerToken: safeParseBigInt(x.priceWeiPerToken) ?? 0n,
+        remaining: safeParseBigInt(x.remaining) ?? 0n,
+        blockNumber: safeParseBigInt(x.blockNumber),
+        blockTimestamp: typeof x.blockTimestamp === "number" ? x.blockTimestamp : undefined
+      });
+    }
+
+    // Keep newest first.
+    out.sort((a, b) => {
+      const at = a.blockTimestamp ?? 0;
+      const bt = b.blockTimestamp ?? 0;
+      if (bt !== at) return bt - at;
+      const abn = a.blockNumber ?? 0n;
+      const bbn = b.blockNumber ?? 0n;
+      return bbn > abn ? 1 : bbn < abn ? -1 : 0;
+    });
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function saveLaunchCache(factory: Address, launches: LaunchData[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const entries: LaunchCacheEntryV1[] = launches.map((x) => ({
+      v: 1,
+      launch: x.launch,
+      creator: x.creator,
+      token: x.token,
+      symbol: x.symbol,
+      name: x.name,
+      imageURI: x.imageURI,
+      finalized: x.finalized,
+      pool: x.pool,
+      feeSplitter: x.feeSplitter,
+      stakingVault: x.stakingVault,
+      sold: x.sold.toString(),
+      saleSupply: x.saleSupply.toString(),
+      priceWeiPerToken: x.priceWeiPerToken.toString(),
+      remaining: x.remaining.toString(),
+      blockNumber: x.blockNumber?.toString(),
+      blockTimestamp: x.blockTimestamp,
+      lastUpdatedAt: Date.now()
+    }));
+    window.localStorage.setItem(cacheKeyForLaunches(factory), JSON.stringify(entries));
+  } catch {
+    // Ignore quota/serialization errors; caching is a best-effort UX enhancement.
+  }
+}
 
 /* ══════════════════════════════════════════════════════
    Featured Carousel
@@ -291,13 +434,18 @@ function FeaturedCarousel({
           const soldOut = x.remaining === 0n && x.saleSupply > 0n;
           const ethRaised = x.priceWeiPerToken > 0n && x.sold > 0n ? (x.sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
           const grad = symbolColor(x.symbol);
+          const trading = isTradingLaunch(x);
 
           return (
-            <button
-              type="button"
+            <div
               key={x.launch}
               onClick={() => onSelect(x)}
-              className="snap-start flex-shrink-0 w-[280px] sm:w-[320px] bg-lm-black border border-lm-terminal-gray hover:border-lm-orange transition-all group text-left"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") onSelect(x);
+              }}
+              role="button"
+              tabIndex={0}
+              className="snap-start flex-shrink-0 w-[280px] sm:w-[320px] bg-lm-black border border-lm-terminal-gray hover:border-lm-orange transition-all group text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-lm-orange/40"
             >
               {/* Gradient banner */}
               <div className={`h-20 bg-gradient-to-br ${grad} relative overflow-hidden`}>
@@ -319,15 +467,25 @@ function FeaturedCarousel({
                     <div className="text-white/70 text-[10px] leading-tight truncate max-w-[180px]">{x.name}</div>
                   </div>
                 </div>
+                {/* Direct action (avoid nested <button> inside <button>) */}
+                {trading && x.token && (
+                  <Link
+                    href={`/exchange?in=ETH&out=${x.token}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-2 right-2 text-[9px] px-2 py-1 border border-lm-green text-lm-green bg-black/40 hover:bg-lm-green/10 transition-colors font-bold"
+                  >
+                    Trade
+                  </Link>
+                )}
                 <div className="absolute top-2 right-2">
                   <span className={`text-[9px] px-1.5 py-0.5 font-bold ${
-                    x.finalized
+                    trading
                       ? "bg-lm-green/20 text-lm-green border border-lm-green/40"
                       : soldOut
                         ? "bg-white/10 text-white/60 border border-white/20"
                         : "bg-lm-orange/20 text-lm-orange border border-lm-orange/40"
                   }`}>
-                    {x.finalized ? "TRADING" : soldOut ? "SOLD OUT" : "SALE OPEN"}
+                    {trading ? "TRADING" : soldOut ? "SOLD OUT" : "SALE OPEN"}
                   </span>
                 </div>
               </div>
@@ -368,7 +526,7 @@ function FeaturedCarousel({
                   <span className="text-lm-orange group-hover:underline font-bold">View Details →</span>
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -409,6 +567,7 @@ function LaunchDetailModal({
   onBuy: (x: LaunchData, ethAmount: string) => void;
 }) {
   const [buyAmt, setBuyAmt] = useState("");
+  const trading = isTradingLaunch(x);
   const soldPct = x.saleSupply === 0n ? 0 : Number((x.sold * 10000n) / x.saleSupply) / 100;
   const soldOut = x.remaining === 0n && x.saleSupply > 0n;
   const ethRaised = x.priceWeiPerToken > 0n && x.sold > 0n ? (x.sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
@@ -459,13 +618,13 @@ function LaunchDetailModal({
           </div>
           <div className="absolute bottom-3 right-4">
             <span className={`text-[10px] px-2 py-1 font-bold ${
-              x.finalized
+              trading
                 ? "bg-lm-green/20 text-lm-green border border-lm-green/40"
                 : soldOut
                   ? "bg-white/10 text-white/60 border border-white/20"
                   : "bg-lm-orange/20 text-lm-orange border border-lm-orange/40"
             }`}>
-              {x.finalized ? "TRADING LIVE" : soldOut ? "SOLD OUT" : "SALE OPEN"}
+              {trading ? "TRADING LIVE" : soldOut ? "SOLD OUT" : "SALE OPEN"}
             </span>
           </div>
         </div>
@@ -536,7 +695,7 @@ function LaunchDetailModal({
           )}
 
           {/* Quick Buy for open launches */}
-          {!x.finalized && x.remaining > 0n && (
+          {!trading && x.remaining > 0n && (
             <div className="space-y-2 bg-lm-terminal-darkgray border border-lm-terminal-gray p-3">
               <div className="text-white font-bold text-xs lm-upper">Quick Buy</div>
               <div className="flex gap-2 items-end">
@@ -565,12 +724,12 @@ function LaunchDetailModal({
 
           {/* Actions for finalized */}
           <div className="flex items-center gap-2 flex-wrap">
-            {x.finalized && x.pool && x.pool !== ZERO && (
+            {trading && x.pool && x.pool !== ZERO && (
               <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-xs px-3 py-1.5 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors" onClick={onClose}>
                 Trade on DEX
               </Link>
             )}
-            {x.finalized && x.stakingVault && x.stakingVault !== ZERO && (
+            {trading && x.stakingVault && x.stakingVault !== ZERO && (
               <Link href={`/launcher/${x.launch}`} className="text-xs px-3 py-1.5 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors" onClick={onClose}>
                 Stake ${x.symbol}
               </Link>
@@ -593,7 +752,6 @@ function LaunchesIndex() {
   const { address, walletClient, requireCorrectChain } = useWallet();
   const [launches, setLaunches] = useState<LaunchData[]>([]);
   const [status, setStatus] = useState<string>("");
-  const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<"all" | "open" | "finalized">("all");
   const [buyStatus, setBuyStatus] = useState<Record<string, string>>({});
@@ -601,22 +759,103 @@ function LaunchesIndex() {
   const [buyAmounts, setBuyAmounts] = useState<Record<string, string>>({});
   const [selectedLaunch, setSelectedLaunch] = useState<LaunchData | null>(null);
   const factory = config.launcherFactory as Address;
+  const cacheHydratedRef = useRef(false);
+  const lastFactoryRef = useRef<Address | null>(null);
+  const launchesRef = useRef<LaunchData[]>([]);
+  const indexedToBlockRef = useRef<bigint | null>(null);
 
-  async function refresh() {
+  useEffect(() => {
+    launchesRef.current = launches;
+  }, [launches]);
+
+  useEffect(() => {
+    if (!factory) return;
+    if (lastFactoryRef.current && lastFactoryRef.current.toLowerCase() !== factory.toLowerCase()) {
+      cacheHydratedRef.current = false;
+      indexedToBlockRef.current = null;
+    }
+    lastFactoryRef.current = factory;
+    // Hydrate once per factory so launches don't "disappear" across reloads.
+    if (cacheHydratedRef.current) return;
+    const cached = loadLaunchCache(factory);
+    if (cached.length > 0) setLaunches(cached);
+    indexedToBlockRef.current = loadIndexedToBlock(factory);
+    cacheHydratedRef.current = true;
+  }, [factory]);
+
+  async function enrichOne(prev: LaunchData): Promise<LaunchData> {
+    try {
+      const [sold, saleSupply, priceWeiPerToken, remaining, pool, feeSplitter, stakingVault] = await Promise.all([
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "sold" }) as Promise<bigint>,
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "saleSupply" }) as Promise<bigint>,
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "priceWeiPerToken" }) as Promise<bigint>,
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "remainingForSale" }) as Promise<bigint>,
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "pool" }) as Promise<Address>,
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "feeSplitter" }) as Promise<Address>,
+        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "stakingVault" }) as Promise<Address>
+      ]);
+
+      let finalized = prev.finalized;
+      try {
+        const rec = (await publicClient.readContract({
+          address: factory,
+          abi: StonkLauncherFactoryAbi,
+          functionName: "launches",
+          args: [prev.launch]
+        })) as any;
+        finalized = Boolean(rec?.finalized) || finalized;
+      } catch {
+        // Factory mapping read is best-effort; pool != 0 is enough to treat it as live.
+      }
+
+      const trading = Boolean(pool && pool !== ZERO);
+      return {
+        ...prev,
+        finalized: finalized || trading,
+        pool,
+        feeSplitter,
+        stakingVault,
+        sold,
+        saleSupply,
+        priceWeiPerToken,
+        remaining
+      };
+    } catch {
+      return prev;
+    }
+  }
+
+  async function refresh(opts?: { silent?: boolean; fullReindex?: boolean }) {
     if (!factory) { setStatus("Missing launcher factory address."); setLaunches([]); return; }
-    setLoading(true);
-    setStatus("");
+    if (!opts?.silent) setLoading(true);
+    if (!opts?.silent) setStatus("");
     try {
       const latest = await publicClient.getBlockNumber();
-      const WINDOW = 30_000n;
-      const p = BigInt(Math.max(1, Math.min(10, pages)));
-      const fromBlock = latest > WINDOW * p ? latest - WINDOW * p : 0n;
+      const configuredStart = BigInt(Math.max(0, Number(config.launcherFactoryStartBlock || 0)));
+      const startBlock = configuredStart;
+
+      // Index strategy:
+      // - Full reindex: scan from factory deployment (or 0) to latest.
+      // - Incremental: scan from last indexed block + 1 to latest.
+      const indexedTo = indexedToBlockRef.current ?? loadIndexedToBlock(factory);
+      const fromBlock = opts?.fullReindex
+        ? startBlock
+        : (indexedTo !== null ? indexedTo + 1n : startBlock);
 
       const ev = parseAbiItem(
         "event LaunchCreated(address indexed creator,address indexed token,address indexed launch,string name,string symbol,string metadataURI,string imageURI)"
       );
-      const logs = await publicClient.getLogs({ address: factory, event: ev, fromBlock, toBlock: latest });
-      const newestFirst = [...logs].reverse();
+      const CHUNK = 80_000n;
+      const allLogs: any[] = [];
+      if (fromBlock <= latest) {
+        for (let s = fromBlock; s <= latest; s += CHUNK) {
+          const e = (s + CHUNK - 1n) > latest ? latest : (s + CHUNK - 1n);
+          // eslint-disable-next-line no-await-in-loop
+          const chunkLogs = await publicClient.getLogs({ address: factory, event: ev, fromBlock: s, toBlock: e });
+          allLogs.push(...chunkLogs);
+        }
+      }
+      const newestFirst = [...allLogs].reverse();
 
       const seen = new Set<string>();
       const raw: Array<{ creator: Address; token: Address; launch: Address; symbol: string; name: string; imageURI: string; blockNumber: bigint }> = [];
@@ -629,7 +868,6 @@ function LaunchesIndex() {
           symbol: (l.args.symbol as string) || "TOKEN", name: (l.args.name as string) || "LAUNCH",
           imageURI: (l.args.imageURI as string) || "", blockNumber: l.blockNumber
         });
-        if (raw.length >= 30) break;
       }
 
       const blockNums = [...new Set(raw.map((r) => r.blockNumber))];
@@ -641,43 +879,88 @@ function LaunchesIndex() {
         } catch { /* skip */ }
       }));
 
-      const enriched: LaunchData[] = await Promise.all(
-        raw.map(async (x) => {
-          try {
-            const rec = (await publicClient.readContract({ address: factory, abi: StonkLauncherFactoryAbi, functionName: "launches", args: [x.launch] })) as any;
-            const finalized = Boolean(rec.finalized);
-            const [sold, saleSupply, priceWeiPerToken, remaining] = await Promise.all([
-              publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "sold" }) as Promise<bigint>,
-              publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "saleSupply" }) as Promise<bigint>,
-              publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "priceWeiPerToken" }) as Promise<bigint>,
-              publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "remainingForSale" }) as Promise<bigint>
-            ]);
-            let pool: Address | undefined, feeSplitter: Address | undefined, stakingVault: Address | undefined;
-            if (finalized) {
-              [pool, feeSplitter, stakingVault] = await Promise.all([
-                publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "pool" }) as Promise<Address>,
-                publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "feeSplitter" }) as Promise<Address>,
-                publicClient.readContract({ address: x.launch, abi: StonkLaunchAbi, functionName: "stakingVault" }) as Promise<Address>
-              ]);
-            }
-            return { ...x, finalized, pool, feeSplitter, stakingVault, sold, saleSupply, priceWeiPerToken, remaining, blockTimestamp: blockMap.get(x.blockNumber) };
-          } catch {
-            return { ...x, finalized: false, sold: 0n, saleSupply: 0n, priceWeiPerToken: 0n, remaining: 0n };
-          }
-        })
-      );
+      const baseFromLogs: LaunchData[] = raw.map((x) => ({
+        ...x,
+        finalized: false,
+        sold: 0n,
+        saleSupply: 0n,
+        priceWeiPerToken: 0n,
+        remaining: 0n,
+        blockTimestamp: blockMap.get(x.blockNumber)
+      }));
 
-      setLaunches(enriched);
-      if (enriched.length === 0) setStatus("No launches found in recent blocks.");
+      // Merge into existing set (so older launches never get dropped).
+      const mergedMap = new Map<string, LaunchData>();
+      for (const cur of launchesRef.current) mergedMap.set(cur.launch.toLowerCase(), cur);
+      for (const b of baseFromLogs) {
+        const k = b.launch.toLowerCase();
+        const cur = mergedMap.get(k);
+        if (cur) {
+          mergedMap.set(k, {
+            ...cur,
+            creator: b.creator,
+            token: b.token,
+            symbol: b.symbol || cur.symbol,
+            name: b.name || cur.name,
+            imageURI: b.imageURI || cur.imageURI,
+            blockNumber: b.blockNumber ?? cur.blockNumber,
+            blockTimestamp: b.blockTimestamp ?? cur.blockTimestamp
+          });
+        } else {
+          mergedMap.set(k, b);
+        }
+      }
+
+      let merged = Array.from(mergedMap.values());
+      merged.sort((a, b) => {
+        const at = a.blockTimestamp ?? 0;
+        const bt = b.blockTimestamp ?? 0;
+        if (bt !== at) return bt - at;
+        const abn = a.blockNumber ?? 0n;
+        const bbn = b.blockNumber ?? 0n;
+        return bbn > abn ? 1 : bbn < abn ? -1 : 0;
+      });
+
+      // Enrich a bounded subset to keep RPC load predictable:
+      // - always enrich anything we just saw in logs
+      // - also enrich a few non-trading launches (so "Trade" appears when they finalize)
+      const enrichSet = new Set<string>();
+      for (const b of baseFromLogs) enrichSet.add(b.launch.toLowerCase());
+      for (const x of merged) {
+        if (enrichSet.size >= 60) break;
+        if (!isTradingLaunch(x)) enrichSet.add(x.launch.toLowerCase());
+      }
+      const enrichTargets = merged.filter((x) => enrichSet.has(x.launch.toLowerCase()));
+      const enrichedTargets = await Promise.all(enrichTargets.map(enrichOne));
+      const enrichedMap = new Map(enrichedTargets.map((x) => [x.launch.toLowerCase(), x]));
+      merged = merged.map((x) => enrichedMap.get(x.launch.toLowerCase()) || x);
+
+      setLaunches(merged);
+      // Keep the modal in sync if it's open.
+      if (selectedLaunch) {
+        const updated = merged.find((l) => l.launch.toLowerCase() === selectedLaunch.launch.toLowerCase());
+        if (updated) setSelectedLaunch(updated);
+      }
+      saveLaunchCache(factory, merged);
+      indexedToBlockRef.current = latest;
+      saveIndexedToBlock(factory, latest);
+      if (merged.length === 0) setStatus("No launches found yet.");
     } catch (e: any) {
-      setLaunches([]);
-      setStatus(String(e?.shortMessage || e?.message || e));
+      // Preserve whatever we already have (cache / prior fetch) so the UI doesn't go blank.
+      if (!opts?.silent) setStatus(String(e?.shortMessage || e?.message || e));
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }
 
-  useEffect(() => { refresh().catch(() => {}); }, [pages, factory]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { refresh({ fullReindex: true }).catch(() => {}); }, [factory]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!factory) return;
+    // Keep launches fresh without requiring manual refresh.
+    const iv = setInterval(() => { refresh({ silent: true }).catch(() => {}); }, 30_000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [factory]);
 
   async function quickBuy(x: LaunchData, ethAmtStr?: string) {
     const key = x.launch;
@@ -733,8 +1016,8 @@ function LaunchesIndex() {
   }
 
   const filtered = useMemo(() => {
-    if (filter === "open") return launches.filter((l) => !l.finalized);
-    if (filter === "finalized") return launches.filter((l) => l.finalized);
+    if (filter === "open") return launches.filter((l) => !isTradingLaunch(l));
+    if (filter === "finalized") return launches.filter((l) => isTradingLaunch(l));
     return launches;
   }, [launches, filter]);
 
@@ -763,14 +1046,50 @@ function LaunchesIndex() {
           {(["all", "open", "finalized"] as const).map((f) => (
             <button key={f} type="button" onClick={() => setFilter(f)}
               className={`text-[10px] px-2 py-1 border transition-colors capitalize ${filter === f ? "border-lm-orange text-lm-orange bg-lm-orange/5" : "border-lm-terminal-gray text-lm-gray hover:border-lm-gray"}`}>
-              {f === "all" ? `All (${launches.length})` : f === "open" ? `Open (${launches.filter((l) => !l.finalized).length})` : `Live (${launches.filter((l) => l.finalized).length})`}
+              {f === "all"
+                ? `All (${launches.length})`
+                : f === "open"
+                  ? `Open (${launches.filter((l) => !isTradingLaunch(l)).length})`
+                  : `Live (${launches.filter((l) => isTradingLaunch(l)).length})`}
             </button>
           ))}
         </div>
         <div className="flex gap-1">
-          <button type="button" onClick={() => setPages(1)} className={`text-[10px] px-2 py-1 border transition-colors ${pages === 1 ? "border-lm-orange text-lm-orange" : "border-lm-terminal-gray text-lm-gray hover:border-lm-gray"}`}>Latest</button>
-          <button type="button" onClick={() => setPages((p) => Math.min(10, p + 1))} className="text-[10px] px-2 py-1 border border-lm-terminal-gray text-lm-gray hover:border-lm-gray transition-colors">Older</button>
-          <button type="button" onClick={() => refresh()} disabled={loading} className="text-[10px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors disabled:opacity-40 disabled:pointer-events-none">{loading ? "..." : "Refresh"}</button>
+          <button
+            type="button"
+            onClick={() => refresh({ fullReindex: true })}
+            disabled={loading}
+            className="text-[10px] px-2 py-1 border border-lm-terminal-gray text-lm-gray hover:border-lm-orange hover:text-lm-orange transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            title="Rescans all LaunchCreated events from the factory start block"
+          >
+            {loading ? "..." : "Index All"}
+          </button>
+          <button
+            type="button"
+            onClick={() => refresh()}
+            disabled={loading}
+            className="text-[10px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+          >
+            {loading ? "..." : "Refresh"}
+          </button>
+          {launches.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                try { window.localStorage.removeItem(cacheKeyForLaunches(factory)); } catch { /**/ }
+                try { window.localStorage.removeItem(indexStateKey(factory)); } catch { /**/ }
+                setLaunches([]);
+                launchesRef.current = [];
+                indexedToBlockRef.current = null;
+                cacheHydratedRef.current = false;
+                refresh().catch(() => {});
+              }}
+              className="text-[10px] px-2 py-1 border border-lm-terminal-gray text-lm-gray hover:border-lm-red hover:text-lm-red transition-colors"
+              title="Clears your local cached launches (does not affect on-chain data)"
+            >
+              Clear Cache
+            </button>
+          )}
         </div>
       </div>
 
@@ -813,8 +1132,8 @@ function LaunchesIndex() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="text-white font-bold text-sm group-hover:text-lm-orange transition-colors">${x.symbol}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 border ${x.finalized ? "border-lm-green text-lm-green" : soldOut ? "border-lm-gray text-lm-gray" : "border-lm-orange text-lm-orange"}`}>
-                          {x.finalized ? "TRADING" : soldOut ? "SOLD OUT" : "SALE OPEN"}
+                        <span className={`text-[10px] px-1.5 py-0.5 border ${isTradingLaunch(x) ? "border-lm-green text-lm-green" : soldOut ? "border-lm-gray text-lm-gray" : "border-lm-orange text-lm-orange"}`}>
+                          {isTradingLaunch(x) ? "TRADING" : soldOut ? "SOLD OUT" : "SALE OPEN"}
                         </span>
                       </div>
                       <div className="text-lm-terminal-lightgray text-[10px] truncate">{x.name}</div>
@@ -854,7 +1173,7 @@ function LaunchesIndex() {
                 </div>
 
                 {/* Quick Buy */}
-                {!x.finalized && x.remaining > 0n && (
+                {!isTradingLaunch(x) && x.remaining > 0n && (
                   <div className="space-y-1.5">
                     <div className="flex gap-1.5 items-end">
                       <div className="flex-1">
@@ -879,7 +1198,7 @@ function LaunchesIndex() {
                 )}
 
                 {/* Finalized actions */}
-                {x.finalized && (
+                {isTradingLaunch(x) && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {x.pool && x.pool !== ZERO && (
                       <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-[10px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">Trade</Link>

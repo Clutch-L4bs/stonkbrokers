@@ -6,6 +6,9 @@ export const config = {
 
   tokenRegistry: (process.env.NEXT_PUBLIC_STONK_TOKEN_REGISTRY_ADDRESS || "") as `0x${string}`,
   launcherFactory: (process.env.NEXT_PUBLIC_STONK_LAUNCHER_FACTORY_ADDRESS || "") as `0x${string}`,
+  // Optional: set this to the block where the factory was deployed to avoid scanning from genesis.
+  // If omitted, the UI will scan from block 0.
+  launcherFactoryStartBlock: Number(process.env.NEXT_PUBLIC_STONK_LAUNCHER_FACTORY_START_BLOCK || "0"),
 
   weth: (process.env.NEXT_PUBLIC_WETH9_ADDRESS || "") as `0x${string}`,
   uniFactory: (process.env.NEXT_PUBLIC_UNISWAP_V3_FACTORY_ADDRESS || "") as `0x${string}`,

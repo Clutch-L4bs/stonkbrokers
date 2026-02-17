@@ -27,6 +27,12 @@ const SLIPPAGE_OPTIONS = [
   { label: "3%", bps: 300 }
 ];
 
+// Minimal WETH9 ABI for wrap/unwrap without needing a pool.
+const Weth9Abi = [
+  { type: "function", name: "deposit", stateMutability: "payable", inputs: [], outputs: [] },
+  { type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ name: "wad", type: "uint256" }], outputs: [] }
+] as const;
+
 const ETH_VIRTUAL: ListedToken = {
   address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as Address,
   symbol: "ETH",
@@ -36,6 +42,10 @@ const ETH_VIRTUAL: ListedToken = {
 
 function isEthVirtual(addr: string): boolean {
   return addr.toLowerCase() === ETH_VIRTUAL.address.toLowerCase();
+}
+
+function isWeth(addr: string): boolean {
+  return !!config.weth && addr.toLowerCase() === (config.weth as string).toLowerCase();
 }
 
 function explorerTx(hash: string) {
@@ -265,6 +275,7 @@ export function SwapPanel() {
   const [lastTxHash, setLastTxHash] = useState<string>("");
   const quoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appliedQueryRef = useRef<string>("");
+  const lastAutoFeeKeyRef = useRef<string>("");
 
   /* ── Derived token info ── */
 
@@ -291,6 +302,18 @@ export function SwapPanel() {
     if (found) return { addr: found.address, meta: found, isNativeEth: false };
     return { addr: "" as Address, meta: null, isNativeEth: false };
   }, [tokenOutSelector, customOutAddr, customOutMeta, tokens]);
+
+  const wrapMode = useMemo(() => {
+    // Wrap/unwap is always 1:1 and doesn't require a Uniswap pool.
+    if (!config.weth) return null as null | { direction: "wrap" | "unwrap" };
+    const inIsEth = tokenIn.isNativeEth;
+    const outIsEth = tokenOut.isNativeEth;
+    const inIsW = !!tokenIn.addr && isWeth(tokenIn.addr);
+    const outIsW = !!tokenOut.addr && isWeth(tokenOut.addr);
+    if (inIsEth && outIsW) return { direction: "wrap" as const };
+    if (inIsW && outIsEth) return { direction: "unwrap" as const };
+    return null;
+  }, [tokenIn.addr, tokenIn.isNativeEth, tokenOut.addr, tokenOut.isNativeEth]);
 
   /* ── Custom token detection ── */
 
@@ -345,9 +368,10 @@ export function SwapPanel() {
   useEffect(() => {
     const qIn = (searchParams.get("in") || searchParams.get("tokenIn") || "").trim();
     const qOut = (searchParams.get("out") || searchParams.get("tokenOut") || searchParams.get("token") || "").trim();
+    const qFee = (searchParams.get("fee") || searchParams.get("feeTier") || "").trim();
     if (!qIn && !qOut) return;
 
-    const key = `${qIn}|${qOut}`;
+    const key = `${qIn}|${qOut}|${qFee}`;
     if (appliedQueryRef.current === key) return;
 
     const isAddr = (s: string) => /^0x[0-9a-fA-F]{40}$/.test(s);
@@ -391,6 +415,11 @@ export function SwapPanel() {
     if (!qIn && qOut) setFromQuery("in", "ETH");
     if (qIn) setFromQuery("in", qIn);
     if (qOut) setFromQuery("out", qOut);
+
+    if (qFee) {
+      const n = Number(qFee);
+      if ([500, 3000, 10000].includes(n)) setFee(n);
+    }
 
     appliedQueryRef.current = key;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -462,6 +491,21 @@ export function SwapPanel() {
   /* ── Quote engine ── */
 
   const refreshQuote = useCallback(async () => {
+    if (wrapMode) {
+      setQuoting(false);
+      const raw = (amountIn || "").trim();
+      if (!raw || raw === "0" || raw === "0." || raw === ".") { setQuoteRaw(0n); setQuoteStr(""); return; }
+      try {
+        const amt = parseUnits(raw, 18);
+        setQuoteRaw(amt);
+        setQuoteStr(raw);
+      } catch {
+        setQuoteRaw(0n);
+        setQuoteStr("");
+      }
+      return;
+    }
+
     if (!config.quoterV2 || !tokenIn.addr || !tokenOut.addr || !tokenIn.meta || !tokenOut.meta) return;
     const raw = (amountIn || "").trim();
     if (!raw || raw === "0" || raw === "0." || raw === ".") { setQuoteRaw(0n); setQuoteStr(""); return; }
@@ -469,21 +513,47 @@ export function SwapPanel() {
     try {
       const amt = parseUnits(raw, tokenIn.meta.decimals);
       if (amt === 0n) { setQuoteRaw(0n); setQuoteStr(""); return; }
-      const res = (await publicClient.readContract({
-        address: config.quoterV2,
-        abi: QuoterV2Abi,
-        functionName: "quoteExactInputSingle",
-        args: [{ tokenIn: tokenIn.addr, tokenOut: tokenOut.addr, amountIn: amt, fee, sqrtPriceLimitX96: 0n }]
-      })) as unknown as readonly [bigint, bigint, number, bigint];
-      setQuoteRaw(res[0]);
-      setQuoteStr(formatUnits(res[0], tokenOut.meta.decimals));
-    } catch {
-      setQuoteRaw(0n);
-      setQuoteStr("No liquidity");
+
+      const tryQuote = async (feeTier: number) => {
+        const res = (await publicClient.readContract({
+          address: config.quoterV2,
+          abi: QuoterV2Abi,
+          functionName: "quoteExactInputSingle",
+          args: [{ tokenIn: tokenIn.addr, tokenOut: tokenOut.addr, amountIn: amt, fee: feeTier, sqrtPriceLimitX96: 0n }]
+        })) as unknown as readonly [bigint, bigint, number, bigint];
+        return res[0];
+      };
+
+      // Common "No liquidity" false negative: pool exists but at a different fee tier.
+      const feeOrder = [fee, ...FEE_OPTIONS.map((o) => o.fee).filter((f) => f !== fee)];
+      let outAmt: bigint | null = null;
+      let usedFee = fee;
+      for (const f of feeOrder) {
+        try {
+          const q = await tryQuote(f);
+          if (q > 0n) { outAmt = q; usedFee = f; break; }
+        } catch { /* try next tier */ }
+      }
+
+      if (outAmt === null) {
+        setQuoteRaw(0n);
+        setQuoteStr("No liquidity");
+        return;
+      }
+
+      setQuoteRaw(outAmt);
+      setQuoteStr(formatUnits(outAmt, tokenOut.meta.decimals));
+
+      // Auto-switch the UI fee tier only when we detect a better one; avoid thrashing.
+      const autoKey = `${tokenIn.addr.toLowerCase()}|${tokenOut.addr.toLowerCase()}|${amt.toString()}`;
+      if (usedFee !== fee && lastAutoFeeKeyRef.current !== autoKey) {
+        lastAutoFeeKeyRef.current = autoKey;
+        setFee(usedFee);
+      }
     } finally {
       setQuoting(false);
     }
-  }, [amountIn, fee, tokenIn.addr, tokenIn.meta, tokenOut.addr, tokenOut.meta]);
+  }, [amountIn, fee, tokenIn.addr, tokenIn.meta, tokenOut.addr, tokenOut.meta, wrapMode]);
 
   useEffect(() => {
     if (quoteTimer.current) clearTimeout(quoteTimer.current);
@@ -641,6 +711,69 @@ export function SwapPanel() {
     }
   }
 
+  async function doWrapOrUnwrap() {
+    if (!wrapMode) return;
+    if (!address) { setStatus("Connect wallet to wrap."); setStatusType("error"); return; }
+    if (!walletClient) { setStatus("Connect wallet to wrap."); setStatusType("error"); return; }
+    if (!config.weth) { setStatus("Missing WETH address in config."); setStatusType("error"); return; }
+
+    setBusy(true);
+    setLastTxHash("");
+    try {
+      const raw = (amountIn || "").trim();
+      const amt = parseUnits(raw || "0", 18);
+      if (amt === 0n) throw new Error("Amount must be greater than 0");
+      await requireCorrectChain();
+
+      if (wrapMode.direction === "wrap") {
+        setStatus(`Wrapping ${raw} ETH → WETH...`);
+        setStatusType("info");
+        const hash = await walletClient.writeContract({
+          address: config.weth as Address,
+          abi: Weth9Abi,
+          functionName: "deposit",
+          args: [],
+          value: amt,
+          chain: robinhoodTestnet,
+          account: address
+        });
+        setLastTxHash(hash);
+        await publicClient.waitForTransactionReceipt({ hash });
+        setStatus("Wrap confirmed!");
+        setStatusType("success");
+      } else {
+        setStatus(`Unwrapping ${raw} WETH → ETH...`);
+        setStatusType("info");
+        const hash = await walletClient.writeContract({
+          address: config.weth as Address,
+          abi: Weth9Abi,
+          functionName: "withdraw",
+          args: [amt],
+          chain: robinhoodTestnet,
+          account: address
+        });
+        setLastTxHash(hash);
+        await publicClient.waitForTransactionReceipt({ hash });
+        setStatus("Unwrap confirmed!");
+        setStatusType("success");
+      }
+
+      setAmountIn("");
+      setQuoteRaw(0n);
+      setQuoteStr("");
+    } catch (e: any) {
+      const msg = String(e?.shortMessage || e?.message || e);
+      if (msg.includes("user rejected") || msg.includes("User denied")) {
+        setStatus("Transaction cancelled by user.");
+      } else {
+        setStatus(`Wrap failed: ${msg}`);
+      }
+      setStatusType("error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function flipTokens() {
     const tmpSel = tokenInSelector;
     const tmpCustom = customInAddr;
@@ -684,13 +817,17 @@ export function SwapPanel() {
         ? "Select Tokens"
         : !amountIn || Number(amountIn) <= 0
           ? "Enter Amount"
-          : quoteStr === "No liquidity"
+          : wrapMode
+            ? (wrapMode.direction === "wrap" ? "Wrap ETH to WETH" : "Unwrap WETH to ETH")
+            : quoteStr === "No liquidity"
             ? "No Liquidity for This Pair"
             : insufficientBal
               ? `Insufficient ${inSymbol} Balance`
               : `Swap ${inSymbol} for ${outSymbol}`;
 
-  const btnDisabled = !canSwap || busy || insufficientBal;
+  const btnDisabled = wrapMode
+    ? (!amountIn || Number(amountIn) <= 0 || busy || insufficientBal)
+    : (!canSwap || busy || insufficientBal);
 
   return (
     <div className="lm-swap-card p-1">
@@ -854,7 +991,7 @@ export function SwapPanel() {
       {/* ── Action Button ── */}
       <div className="p-1 pt-2">
         <Button
-          onClick={doSwap}
+          onClick={wrapMode ? doWrapOrUnwrap : doSwap}
           loading={busy}
           disabled={btnDisabled}
           variant={btnDisabled ? "default" : "primary"}

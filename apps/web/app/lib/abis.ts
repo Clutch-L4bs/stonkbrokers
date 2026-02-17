@@ -169,6 +169,15 @@ export const NonfungiblePositionManagerAbi = [
       { name: "amount1", type: "uint256" }
     ]
   },
+  // When providing native ETH for WETH in mint/increaseLiquidity, call refundETH() to
+  // return any unspent msg.value back to the caller (usually via multicall).
+  {
+    type: "function",
+    name: "refundETH",
+    stateMutability: "payable",
+    inputs: [],
+    outputs: []
+  },
   {
     type: "function",
     name: "multicall",
