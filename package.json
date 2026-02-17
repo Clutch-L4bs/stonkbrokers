@@ -18,7 +18,11 @@
     "claim:robinhood": "npx hardhat run scripts/claim.js --network robinhoodTestnet",
     "ui:serve": "python3 -m http.server 8080 --directory .",
     "preview:nft": "npx hardhat run scripts/generate-previews.js",
-    "preview:all": "GENERATE_ALL=true npx hardhat run scripts/generate-previews.js"
+    "preview:all": "GENERATE_ALL=true npx hardhat run scripts/generate-previews.js",
+
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:build": "npm --prefix apps/web run build",
+    "web:lint": "npm --prefix apps/web run lint"
   },
   "keywords": [],
   "author": "",
