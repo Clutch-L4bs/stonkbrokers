@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#355c7d"/><stop offset="50%" stop-color="#6c5b7b"/><stop offset="100%" stop-color="#c06c84"/></linearGradient></defs>
+    <rect width="240" height="240" rx="32" fill="url(#g)"/>
+    <path d="M120 30 L115 70 L95 90 L105 120 L85 150 L100 170 L90 210" stroke="white" stroke-width="4" fill="none" opacity="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M115 70 L140 80" stroke="white" stroke-width="3" fill="none" opacity="0.6"/>
+    <path d="M105 120 L130 115" stroke="white" stroke-width="3" fill="none" opacity="0.6"/>
+    <path d="M85 150 L65 155" stroke="white" stroke-width="3" fill="none" opacity="0.6"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$QUAKE</text>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <rect width="240" height="240" rx="32" fill="#000000"/>
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#dc143c"/><stop offset="100%" stop-color="#ff4500"/></linearGradient></defs>
+    <path d="M80 40 L170 200 L160 200 L70 40Z" fill="url(#g)"/>
+    <path d="M100 40 L190 200 L180 200 L90 40Z" fill="url(#g)" opacity="0.7"/>
+    <path d="M60 40 L150 200 L140 200 L50 40Z" fill="url(#g)" opacity="0.5"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$FURY</text>
+</svg>

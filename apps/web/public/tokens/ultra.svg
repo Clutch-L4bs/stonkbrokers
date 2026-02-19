@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <rect width="240" height="240" rx="32" fill="#000428"/>
+    <defs><radialGradient id="g" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#f12711"/><stop offset="50%" stop-color="#f5af19"/><stop offset="100%" stop-color="#f12711" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="120" cy="110" r="80" fill="url(#g)" opacity="0.6"/>
+    <line x1="145" y1="110" x2="185" y2="110" stroke="white" stroke-width="3" opacity="0.9"/><line x1="141.65063509461098" y1="122.5" x2="176.29165124598853" y2="142.5" stroke="#f5af19" stroke-width="1.5" opacity="0.5"/><line x1="132.5" y1="131.65063509461098" x2="152.5" y2="166.2916512459885" stroke="white" stroke-width="3" opacity="0.9"/><line x1="120" y1="135" x2="120" y2="175" stroke="#f5af19" stroke-width="1.5" opacity="0.5"/><line x1="107.5" y1="131.65063509461098" x2="87.50000000000001" y2="166.29165124598853" stroke="white" stroke-width="3" opacity="0.9"/><line x1="98.34936490538902" y1="122.5" x2="63.70834875401148" y2="142.5" stroke="#f5af19" stroke-width="1.5" opacity="0.5"/><line x1="95" y1="110" x2="55" y2="110.00000000000001" stroke="white" stroke-width="3" opacity="0.9"/><line x1="98.34936490538904" y1="97.5" x2="63.70834875401149" y2="77.5" stroke="#f5af19" stroke-width="1.5" opacity="0.5"/><line x1="107.49999999999999" y1="88.34936490538904" x2="87.49999999999997" y2="53.708348754011496" stroke="white" stroke-width="3" opacity="0.9"/><line x1="120" y1="85" x2="119.99999999999999" y2="45" stroke="#f5af19" stroke-width="1.5" opacity="0.5"/><line x1="132.5" y1="88.34936490538904" x2="152.5" y2="53.70834875401149" stroke="white" stroke-width="3" opacity="0.9"/><line x1="141.65063509461095" y1="97.49999999999999" x2="176.2916512459885" y2="77.49999999999997" stroke="#f5af19" stroke-width="1.5" opacity="0.5"/>
+    <circle cx="120" cy="110" r="20" fill="#f12711"/>
+    <circle cx="120" cy="110" r="10" fill="white" opacity="0.8"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$ULTRA</text>
+</svg>

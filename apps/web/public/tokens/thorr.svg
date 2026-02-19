@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4a00e0"/><stop offset="100%" stop-color="#8e2de2"/></linearGradient></defs>
+    <rect width="240" height="240" rx="32" fill="url(#g)"/>
+    <rect x="112" y="65" width="16" height="100" rx="3" fill="#ffd700" opacity="0.9"/>
+    <rect x="80" y="55" width="80" height="30" rx="6" fill="#ffd700" opacity="0.9"/>
+    <path d="M120 165 L100 190 L140 190Z" fill="#ffd700" opacity="0.6"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$THORR</text>
+</svg>

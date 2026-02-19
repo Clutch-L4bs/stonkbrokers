@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <rect width="240" height="240" rx="32" fill="#021b79"/>
+    <circle cx="120" cy="110" r="12" fill="#00f260"/>
+    <ellipse cx="120" cy="110" rx="55" ry="20" fill="none" stroke="#00f260" stroke-width="2.5" opacity="0.8"/>
+    <ellipse cx="120" cy="110" rx="55" ry="20" fill="none" stroke="#0575e6" stroke-width="2.5" opacity="0.8" transform="rotate(60 120 110)"/>
+    <ellipse cx="120" cy="110" rx="55" ry="20" fill="none" stroke="#00f260" stroke-width="2.5" opacity="0.8" transform="rotate(-60 120 110)"/>
+    <circle cx="120" cy="110" r="6" fill="white"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$ION</text>
+</svg>

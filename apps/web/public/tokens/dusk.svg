@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2c3e50"/><stop offset="40%" stop-color="#e74c3c"/><stop offset="100%" stop-color="#f39c12"/></linearGradient></defs>
+    <rect width="240" height="240" rx="32" fill="url(#g)"/>
+    <circle cx="120" cy="120" r="35" fill="#f39c12" opacity="0.9"/>
+    <circle cx="120" cy="120" r="25" fill="white" opacity="0.3"/>
+    <path d="M0 150 Q60 130 120 140 Q180 150 240 135 L240 240 L0 240Z" fill="#2c3e50" opacity="0.3"/>
+    <path d="M0 170 Q60 155 120 165 Q180 175 240 160 L240 240 L0 240Z" fill="#2c3e50" opacity="0.4"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$DUSK</text>
+</svg>

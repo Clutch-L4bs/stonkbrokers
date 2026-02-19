@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <rect width="240" height="240" rx="32" fill="#1a0a00"/>
+    <defs>
+      <radialGradient id="g" cx="50%" cy="80%" r="60%"><stop offset="0%" stop-color="#ff512f"/><stop offset="50%" stop-color="#f09819"/><stop offset="100%" stop-color="#ff512f" stop-opacity="0"/></radialGradient>
+    </defs>
+    <ellipse cx="120" cy="180" rx="80" ry="40" fill="url(#g)" opacity="0.5"/>
+    <path d="M120 40 C90 80 75 110 80 140 C85 160 100 170 120 175 C140 170 155 160 160 140 C165 110 150 80 120 40Z" fill="#ff512f" opacity="0.9"/>
+    <path d="M120 70 C105 95 95 115 105 135 C110 145 115 148 120 150 C125 148 130 145 135 135 C145 115 135 95 120 70Z" fill="#f09819"/>
+    <path d="M120 95 C112 110 108 125 115 135 C118 138 120 140 122 138 C128 130 125 115 120 95Z" fill="white" opacity="0.7"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$PYRO</text>
+</svg>

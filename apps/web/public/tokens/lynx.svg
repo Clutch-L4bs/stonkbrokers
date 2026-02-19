@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <rect width="240" height="240" rx="32" fill="#2c2c2c"/>
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#fc4a1a"/><stop offset="100%" stop-color="#f7b733"/></linearGradient></defs>
+    <path d="M80 50 Q85 100 95 150" stroke="url(#g)" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M110 45 Q115 100 120 160" stroke="url(#g)" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M140 50 Q145 100 155 150" stroke="url(#g)" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <path d="M170 60 Q170 110 175 140" stroke="url(#g)" stroke-width="10" fill="none" stroke-linecap="round"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$LYNX</text>
+</svg>

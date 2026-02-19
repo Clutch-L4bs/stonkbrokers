@@ -8,6 +8,7 @@ import { useWallet } from "../../wallet/WalletProvider";
 import { publicClient, robinhoodTestnet } from "../../providers";
 import { config } from "../../lib/config";
 import { ERC721EnumerableAbi, StonkMarketplaceAbi } from "../../lib/abis";
+import { useEthPrice, fmtUsd as fmtUsdShared } from "../../lib/useEthPrice";
 
 /* ── Helpers ── */
 function fmtEthClean(wei: bigint): string {
@@ -218,6 +219,7 @@ export function useOwnedBrokers() {
 /* ── Feed Tab ── */
 export function FeedTab() {
   const { address, walletClient, requireCorrectChain } = useWallet();
+  const ethUsd = useEthPrice();
   const marketplace = config.marketplace as Address;
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [status, setStatus] = useState("");
@@ -458,6 +460,7 @@ export function FeedTab() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-white font-bold lm-mono text-sm">{fmtEthClean(it.price)} ETH</span>
+                      <span className="text-lm-terminal-lightgray text-[10px] lm-mono">{fmtUsdShared(Number(formatEther(it.price)) * ethUsd)}</span>
                       <span className={`lm-badge ${it.active ? "lm-badge-green" : "lm-badge-gray"}`}>
                         {it.active ? "ACTIVE" : "SOLD"}
                       </span>
@@ -544,6 +547,7 @@ export function FeedTab() {
 /* ── Create Listing Tab ── */
 export function ListTab() {
   const { address, walletClient, requireCorrectChain } = useWallet();
+  const ethUsd = useEthPrice();
   const marketplace = config.marketplace as Address;
   const supportedNfts = useSupportedNfts();
   const { owned, refreshOwned } = useOwnedBrokers();
@@ -659,7 +663,10 @@ export function ListTab() {
         </div>
 
         <div className="space-y-1">
-          <div className="text-lm-terminal-lightgray text-xs">Price (ETH)</div>
+          <div className="text-lm-terminal-lightgray text-xs flex items-center gap-2">
+            Price (ETH)
+            {listPriceEth && Number(listPriceEth) > 0 && <span className="text-[10px] lm-mono">{fmtUsdShared(Number(listPriceEth) * ethUsd)}</span>}
+          </div>
           <Input value={listPriceEth} onValueChange={setListPriceEth} placeholder="0.05" />
         </div>
 
@@ -827,6 +834,7 @@ export function SwapTab() {
 /* ── My Activity Tab ── */
 export function MyActivityTab() {
   const { address, walletClient, requireCorrectChain } = useWallet();
+  const ethUsd = useEthPrice();
   const marketplace = config.marketplace as Address;
   const [listings, setListings] = useState<ListingItem[]>([]);
   const [swaps, setSwaps] = useState<SwapItem[]>([]);
@@ -977,7 +985,7 @@ export function MyActivityTab() {
                       {it.active ? "ACTIVE" : "SOLD"}
                     </span>
                   </div>
-                  <div className="text-white text-xs lm-mono font-bold">{fmtEthClean(it.price)} ETH</div>
+                  <div className="text-white text-xs lm-mono font-bold">{fmtEthClean(it.price)} ETH <span className="text-lm-terminal-lightgray font-normal">{fmtUsdShared(Number(formatEther(it.price)) * ethUsd)}</span></div>
                 </div>
                 <div className="flex items-center gap-2">
                   {it.active && (

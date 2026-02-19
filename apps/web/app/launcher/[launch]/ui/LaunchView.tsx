@@ -15,6 +15,7 @@ import {
   StonkLpFeeSplitterAbi,
   StonkYieldStakingVaultAbi
 } from "../../../lib/abis";
+import { useEthPrice, fmtUsd, ethToUsd } from "../../../lib/useEthPrice";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000" as Address;
 
@@ -92,6 +93,7 @@ function formatUnlockTime(ts: bigint): string {
 export function LaunchView({ launch }: { launch: string }) {
   const launchAddr = useMemo(() => asAddress(launch), [launch]);
   const { address, walletClient, requireCorrectChain } = useWallet();
+  const ethUsd = useEthPrice();
 
   const [memeToken, setMemeToken] = useState<Address | undefined>();
   const [stakingVault, setStakingVault] = useState<Address | undefined>();
@@ -417,11 +419,13 @@ export function LaunchView({ launch }: { launch: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
           <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
             <div className="text-lm-terminal-lightgray">Price per Token</div>
-            <div className="text-white lm-mono font-bold">{fmtPrice(priceWeiPerToken)}</div>
+            <div className="text-white lm-mono font-bold">{fmtUsd(Number(formatEther(priceWeiPerToken)) * ethUsd)}</div>
+            <div className="text-lm-terminal-lightgray text-[9px] lm-mono mt-0.5">{fmtPrice(priceWeiPerToken)}</div>
           </div>
           <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
             <div className="text-lm-terminal-lightgray">Total Raised</div>
-            <div className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</div>
+            <div className="text-white lm-mono font-bold">{ethToUsd(Number(formatEther(ethRaised)), ethUsd)}</div>
+            <div className="text-lm-terminal-lightgray text-[9px] lm-mono mt-0.5">{fmtEth(ethRaised)} ETH</div>
           </div>
           <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
             <div className="text-lm-terminal-lightgray">Your Balance</div>

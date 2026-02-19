@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs>
+      <radialGradient id="g1" cx="30%" cy="40%" r="50%"><stop offset="0%" stop-color="#667eea"/><stop offset="100%" stop-color="#667eea" stop-opacity="0"/></radialGradient>
+      <radialGradient id="g2" cx="70%" cy="60%" r="50%"><stop offset="0%" stop-color="#764ba2"/><stop offset="100%" stop-color="#764ba2" stop-opacity="0"/></radialGradient>
+      <radialGradient id="g3" cx="50%" cy="30%" r="40%"><stop offset="0%" stop-color="#f093fb"/><stop offset="100%" stop-color="#f093fb" stop-opacity="0"/></radialGradient>
+    </defs>
+    <rect width="240" height="240" rx="32" fill="#0a0a1a"/>
+    <circle cx="80" cy="100" r="100" fill="url(#g1)" opacity="0.7"/>
+    <circle cx="170" cy="140" r="100" fill="url(#g2)" opacity="0.7"/>
+    <circle cx="120" cy="70" r="80" fill="url(#g3)" opacity="0.5"/>
+    <text x="120" y="130" text-anchor="middle" fill="white" font-size="40" font-weight="bold" font-family="Arial" opacity="0.9">H</text>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$HAZE</text>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#43cea2"/><stop offset="100%" stop-color="#185a9d"/></linearGradient></defs>
+    <rect width="240" height="240" rx="32" fill="url(#g)"/>
+    <polygon points="120,50 160,75 170,120 140,160 100,160 70,120 80,75" fill="#ffffff" opacity="0.9"/>
+    <line x1="120" y1="50" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <line x1="160" y1="75" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <line x1="170" y1="120" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <line x1="140" y1="160" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <line x1="100" y1="160" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <line x1="70" y1="120" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <line x1="80" y1="75" x2="120" y2="110" stroke="#43cea2" stroke-width="1.5" opacity="0.5"/>
+    <circle cx="120" cy="110" r="6" fill="#185a9d" opacity="0.8"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$SHARD</text>
+</svg>

@@ -12,6 +12,7 @@ import { QuoterV2Abi, SwapRouterAbi, ERC20Abi, ERC20MetadataAbi } from "../../li
 import { useWallet } from "../../wallet/WalletProvider";
 import { robinhoodTestnet } from "../../providers";
 import { useIntentListener, IntentAction } from "../../components/IntentTerminal";
+import { useEthPrice, fmtUsd as fmtUsdLive } from "../../lib/useEthPrice";
 
 /* ── Helpers ── */
 
@@ -97,6 +98,7 @@ function TokenSelector({
   customMeta,
   label,
   balance,
+  balanceUsd,
   symbol,
   onMax,
   amount,
@@ -120,6 +122,7 @@ function TokenSelector({
   amountReadonly?: boolean;
   quoteDisplay?: string;
   isNativeEth?: boolean;
+  balanceUsd?: string;
 }) {
   const isCustom = value === "__custom__";
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -154,6 +157,7 @@ function TokenSelector({
               <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.5 3h1v1h-1V4zm-1 2h3v1h-1v3h1v1h-3V10h1V7h-1V6z" />
             </svg>
             <span className="text-white">{fmtBal(balance)}</span>
+            {balanceUsd && <span className="text-lm-terminal-lightgray">({balanceUsd})</span>}
           </div>
         )}
       </div>
@@ -266,6 +270,7 @@ function TokenSelector({
 
 export function SwapPanel() {
   const { address, walletClient, requireCorrectChain } = useWallet();
+  const ethUsd = useEthPrice();
   const searchParams = useSearchParams();
 
   const [tokens, setTokens] = useState<ListedToken[]>([]);
@@ -806,11 +811,14 @@ export function SwapPanel() {
 
   const inSymbol = tokenIn.isNativeEth ? "ETH" : (tokenIn.meta?.symbol || "");
   const outSymbol = tokenOut.isNativeEth ? "ETH" : (tokenOut.meta?.symbol || "");
+  const isOutEthLike = outSymbol === "ETH" || outSymbol === "WETH";
+  const isInEthLike = inSymbol === "ETH" || inSymbol === "WETH";
   const quoteDisplay = quoting
     ? "Quoting..."
     : quoteStr && quoteStr !== "No liquidity"
-      ? `${fmtBal(quoteStr)} ${outSymbol}`
+      ? `${fmtBal(quoteStr)} ${outSymbol}${isOutEthLike ? ` (${fmtUsdLive(Number(quoteStr) * ethUsd)})` : ""}`
       : quoteStr;
+  const inUsdHint = isInEthLike && amountIn && Number(amountIn) > 0 ? fmtUsdLive(Number(amountIn) * ethUsd) : "";
   const canSwap = tokenIn.addr && tokenOut.addr && amountIn && Number(amountIn) > 0 && quoteStr && quoteStr !== "No liquidity";
 
   const statusColor = statusType === "success" ? "text-lm-green" : statusType === "error" ? "text-lm-red" : "text-lm-gray";
@@ -856,6 +864,7 @@ export function SwapPanel() {
         customMeta={customInMeta}
         label="You Pay"
         balance={balanceIn || undefined}
+        balanceUsd={isInEthLike && balanceIn ? fmtUsdLive(Number(balanceIn) * ethUsd) : undefined}
         symbol={inSymbol}
         onMax={() => { if (balanceIn) setAmountIn(balanceIn); }}
         amount={amountIn}
@@ -908,6 +917,7 @@ export function SwapPanel() {
                   1 {exchangeRate.inSymbol} = {fmtRate(exchangeRate.forward)} {exchangeRate.outSymbol}
                 </span>
               )}
+              {inUsdHint && <span className="text-lm-terminal-lightgray">({inUsdHint})</span>}
             </div>
             <div className="flex items-center gap-1.5 text-lm-terminal-lightgray">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">

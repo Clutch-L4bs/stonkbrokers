@@ -10,6 +10,7 @@ import { publicClient } from "../../providers";
 import { config } from "../../lib/config";
 import { NonfungiblePositionManagerAbi, ERC20MetadataAbi, UniswapV3PoolAbi, UniswapV3FactoryAbi } from "../../lib/abis";
 import { IntentTerminal, IntentAction, dispatchIntent } from "../../components/IntentTerminal";
+import { useEthPrice, fmtUsd as fmtUsdLive } from "../../lib/useEthPrice";
 
 type LpPos = {
   tokenId: bigint;
@@ -106,6 +107,7 @@ function fmtBal(raw: string): string {
 
 function PositionsTab() {
   const { address, walletClient } = useWallet();
+  const ethUsd = useEthPrice();
   const [positions, setPositions] = useState<LpPos[]>([]);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -444,11 +446,11 @@ function PositionsTab() {
 
                   {/* Fees preview — always visible when fees exist */}
                   {hasFees && (
-                    <div className="mt-2 flex items-center gap-1 text-[10px]">
+                    <div className="mt-2 flex items-center gap-1 text-[10px] flex-wrap">
                       <span className="text-lm-green font-bold">Fees:</span>
-                      {p.tokensOwed0 > 0n && <span className="text-white lm-mono">{fmtBal(formatUnits(p.tokensOwed0, p.dec0))} {p.sym0}</span>}
+                      {p.tokensOwed0 > 0n && <span className="text-white lm-mono">{fmtBal(formatUnits(p.tokensOwed0, p.dec0))} {p.sym0}{(p.sym0 === "WETH" || p.sym0 === "ETH") ? ` (${fmtUsdLive(Number(formatUnits(p.tokensOwed0, p.dec0)) * ethUsd)})` : ""}</span>}
                       {p.tokensOwed0 > 0n && p.tokensOwed1 > 0n && <span className="text-lm-terminal-gray">+</span>}
-                      {p.tokensOwed1 > 0n && <span className="text-white lm-mono">{fmtBal(formatUnits(p.tokensOwed1, p.dec1))} {p.sym1}</span>}
+                      {p.tokensOwed1 > 0n && <span className="text-white lm-mono">{fmtBal(formatUnits(p.tokensOwed1, p.dec1))} {p.sym1}{(p.sym1 === "WETH" || p.sym1 === "ETH") ? ` (${fmtUsdLive(Number(formatUnits(p.tokensOwed1, p.dec1)) * ethUsd)})` : ""}</span>}
                     </div>
                   )}
                 </button>
@@ -490,10 +492,12 @@ function PositionsTab() {
                           <div>
                             <div className="text-lm-terminal-lightgray text-[8px]">{p.sym0}</div>
                             <div className="text-white lm-mono text-sm font-bold">{fmtBal(formatUnits(p.tokensOwed0, p.dec0))}</div>
+                            {(p.sym0 === "WETH" || p.sym0 === "ETH") && p.tokensOwed0 > 0n && <div className="text-lm-terminal-lightgray text-[9px] lm-mono">{fmtUsdLive(Number(formatUnits(p.tokensOwed0, p.dec0)) * ethUsd)}</div>}
                           </div>
                           <div>
                             <div className="text-lm-terminal-lightgray text-[8px]">{p.sym1}</div>
                             <div className="text-white lm-mono text-sm font-bold">{fmtBal(formatUnits(p.tokensOwed1, p.dec1))}</div>
+                            {(p.sym1 === "WETH" || p.sym1 === "ETH") && p.tokensOwed1 > 0n && <div className="text-lm-terminal-lightgray text-[9px] lm-mono">{fmtUsdLive(Number(formatUnits(p.tokensOwed1, p.dec1)) * ethUsd)}</div>}
                           </div>
                         </div>
                       </div>
@@ -560,6 +564,7 @@ export function ExchangeBootstrap({
     []
   );
   const [active, setActive] = useState("swap");
+  const ethUsd = useEthPrice();
 
   const handleIntent = useCallback((intent: IntentAction) => {
     const swapTypes = ["swap", "flip_tokens", "max_balance", "set_fee", "set_slippage"];
@@ -581,7 +586,15 @@ export function ExchangeBootstrap({
       <Panel
         title="Exchange"
         hint="Swap any token pair. Native ETH supported. Create and manage LP positions."
-        right={<TerminalTabs tabs={tabs} active={active} onChange={setActive} />}
+        right={(
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-lm-terminal-lightgray lm-mono hidden sm:inline-flex items-center gap-1" title="Live ETH/USD">
+              <span className="w-1.5 h-1.5 rounded-full bg-lm-green animate-pulse" />
+              ETH <span className="text-white font-bold">${ethUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </span>
+            <TerminalTabs tabs={tabs} active={active} onChange={setActive} />
+          </div>
+        )}
       >
         {active === "swap" ? <SwapPanel /> : null}
         {active === "pools" ? <PoolsPanel /> : null}

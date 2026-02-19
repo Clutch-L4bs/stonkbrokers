@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f7971e"/><stop offset="100%" stop-color="#ffd200"/></linearGradient></defs>
+    <rect width="240" height="240" rx="32" fill="url(#g)"/>
+    <rect x="85" y="95" width="70" height="65" rx="8" fill="#1a1a1a"/>
+    <path d="M95 95 L95 75 Q95 55 120 55 Q145 55 145 75 L145 95" fill="none" stroke="#1a1a1a" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="120" cy="122" r="8" fill="#f7971e"/>
+    <rect x="117" y="127" width="6" height="15" rx="2" fill="#f7971e"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$KRYPTO</text>
+</svg>

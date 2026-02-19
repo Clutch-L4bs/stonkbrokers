@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff3cac"/><stop offset="50%" stop-color="#784ba0"/><stop offset="100%" stop-color="#2b86c5"/></linearGradient></defs>
+    <rect width="240" height="240" rx="32" fill="url(#g)"/>
+    <g opacity="0.15" stroke="white" stroke-width="1.5" fill="none">
+      <polygon points="40,10 57,20 57,40 40,50 23,40 23,20"/><polygon points="100,10 117,20 117,40 100,50 83,40 83,20"/><polygon points="160,10 177,20 177,40 160,50 143,40 143,20"/><polygon points="70,55 87,65 87,85 70,95 53,85 53,65"/><polygon points="130,55 147,65 147,85 130,95 113,85 113,65"/><polygon points="190,55 207,65 207,85 190,95 173,85 173,65"/><polygon points="40,100 57,110 57,130 40,140 23,130 23,110"/><polygon points="100,100 117,110 117,130 100,140 83,130 83,110"/><polygon points="160,100 177,110 177,130 160,140 143,130 143,110"/><polygon points="70,145 87,155 87,175 70,185 53,175 53,155"/><polygon points="130,145 147,155 147,175 130,185 113,175 113,155"/><polygon points="190,145 207,155 207,175 190,185 173,175 173,155"/><polygon points="40,190 57,200 57,220 40,230 23,220 23,200"/><polygon points="100,190 117,200 117,220 100,230 83,220 83,200"/><polygon points="160,190 177,200 177,220 160,230 143,220 143,200"/>
+    </g>
+    <polygon points="120,55 155,75 155,115 120,135 85,115 85,75" fill="white" opacity="0.9" stroke="white" stroke-width="2"/>
+    <polygon points="120,70 142,82 142,108 120,120 98,108 98,82" fill="#784ba0" opacity="0.7"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$APEX</text>
+</svg>

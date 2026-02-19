@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+
+    <rect width="240" height="240" rx="32" fill="#1a1a2e"/>
+    <defs><radialGradient id="g" cx="65%" cy="35%" r="60%"><stop offset="0%" stop-color="#ffd700"/><stop offset="100%" stop-color="#ff6b00" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="155" cy="85" r="100" fill="url(#g)" opacity="0.4"/>
+    <circle cx="155" cy="85" r="25" fill="#ffd700"/>
+    <circle cx="155" cy="85" r="15" fill="white" opacity="0.8"/>
+    <path d="M155 85 Q120 90 60 130 Q80 110 130 88Z" fill="#ffd700" opacity="0.6"/>
+    <path d="M155 85 Q130 100 70 155 Q90 130 140 95Z" fill="#ff6b00" opacity="0.4"/>
+  <text x="120" y="212" text-anchor="middle" fill="white" font-size="20" font-weight="bold" font-family="Arial,sans-serif" opacity="0.85">$COMET</text>
+</svg>

@@ -22,9 +22,9 @@ import {
   SwapRouterAbi
 } from "../../lib/abis";
 import { IntentTerminal, IntentAction } from "../../components/IntentTerminal";
+import { useEthPrice, fmtUsd as fmtUsdShared, ethToUsd, usdTag } from "../../lib/useEthPrice";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
-const ETH_USD = 2500;
 
 function isTradingLaunch(x: { finalized: boolean; pool?: Address }): boolean {
   return Boolean(x.finalized || (x.pool && x.pool !== ZERO));
@@ -277,7 +277,7 @@ function MiniSwapModal({ open, onClose, token, symbol, imageURI }: {
         <div className="flex items-center justify-between px-4 py-3 border-b border-lm-terminal-gray">
           <div className="flex items-center gap-2">
             {imageURI && !imageURI.endsWith("/logo.png") && (
-              <img src={imageURI} alt="" className="w-6 h-6 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+              <img src={resolveImageURI(imageURI || "")} alt="" className="w-6 h-6 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
             <div>
               <span className="text-white font-bold text-sm">Swap {symbol.toUpperCase()}</span>
@@ -383,6 +383,13 @@ function MiniSwapModal({ open, onClose, token, symbol, imageURI }: {
 
 function short(a: string) { return a.slice(0, 6) + "..." + a.slice(-4); }
 
+function resolveImageURI(uri: string): string {
+  if (!uri) return uri;
+  const match = uri.match(/^https?:\/\/(?:www\.)?stonkbrokers\.cash(\/tokens\/.+)$/);
+  if (match) return match[1];
+  return uri;
+}
+
 function explorerAddr(addr: string) {
   return `${config.blockExplorerUrl || "https://explorer.testnet.chain.robinhood.com"}/address/${addr}`;
 }
@@ -450,15 +457,7 @@ function fmtSupply(wei: bigint, decimals = 18): string {
 }
 
 function fmtUsd(usd: number): string {
-  if (!usd || !Number.isFinite(usd) || usd <= 0) return "—";
-  if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
-  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
-  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(2)}M`;
-  if (usd >= 1e3) return `$${(usd / 1e3).toFixed(2)}K`;
-  if (usd >= 1) return `$${usd.toFixed(2)}`;
-  if (usd >= 0.01) return `$${usd.toFixed(4)}`;
-  if (usd >= 0.0001) return `$${usd.toFixed(6)}`;
-  return `$${fmtSmall(usd)}`;
+  return fmtUsdShared(usd);
 }
 
 function fmtEthShort(num: number): string {
@@ -468,10 +467,10 @@ function fmtEthShort(num: number): string {
   return `${fmtSmall(num)} ETH`;
 }
 
-function fmtPrice(weiPerToken: bigint): string {
+function fmtPrice(weiPerToken: bigint, ethUsd: number): string {
   if (weiPerToken === 0n) return "—";
   const ethVal = Number(formatEther(weiPerToken));
-  return fmtUsd(ethVal * ETH_USD);
+  return fmtUsd(ethVal * ethUsd);
 }
 
 function fmtPriceEth(weiPerToken: bigint): string {
@@ -479,19 +478,19 @@ function fmtPriceEth(weiPerToken: bigint): string {
   return fmtEthShort(Number(formatEther(weiPerToken)));
 }
 
-function displayPrice(x: { marketPriceEth?: number; priceWeiPerToken: bigint; finalized: boolean; pool?: Address }): { label: string; usd: string; eth: string } {
+function displayPrice(x: { marketPriceEth?: number; priceWeiPerToken: bigint; finalized: boolean; pool?: Address }, ethUsd: number): { label: string; usd: string; eth: string } {
   const trading = Boolean(x.finalized || (x.pool && x.pool !== ZERO));
   if (trading && x.marketPriceEth && x.marketPriceEth > 0) {
-    return { label: "Price", usd: fmtUsd(x.marketPriceEth * ETH_USD), eth: fmtEthShort(x.marketPriceEth) };
+    return { label: "Price", usd: fmtUsd(x.marketPriceEth * ethUsd), eth: fmtEthShort(x.marketPriceEth) };
   }
   if (x.priceWeiPerToken > 0n) {
     const ethVal = Number(formatEther(x.priceWeiPerToken));
-    return { label: trading ? "Sale" : "Price", usd: fmtUsd(ethVal * ETH_USD), eth: fmtEthShort(ethVal) };
+    return { label: trading ? "Sale" : "Price", usd: fmtUsd(ethVal * ethUsd), eth: fmtEthShort(ethVal) };
   }
   return { label: "Price", usd: "—", eth: "—" };
 }
 
-function marketCap(x: { marketPriceEth?: number; priceWeiPerToken: bigint; saleSupply: bigint; finalized: boolean; pool?: Address }): string {
+function mcapStr(x: { marketPriceEth?: number; priceWeiPerToken: bigint; saleSupply: bigint; finalized: boolean; pool?: Address }, ethUsd: number): string {
   const trading = Boolean(x.finalized || (x.pool && x.pool !== ZERO));
   let priceEth = 0;
   if (trading && x.marketPriceEth && x.marketPriceEth > 0) {
@@ -501,7 +500,7 @@ function marketCap(x: { marketPriceEth?: number; priceWeiPerToken: bigint; saleS
   }
   if (priceEth <= 0 || x.saleSupply <= 0n) return "—";
   const supply = Number(formatUnits(x.saleSupply, 18));
-  const fdvUsd = priceEth * ETH_USD * supply;
+  const fdvUsd = priceEth * ethUsd * supply;
   return fmtUsd(fdvUsd);
 }
 
@@ -704,11 +703,13 @@ function saveLaunchCache(factory: Address, launches: LaunchData[]) {
 function FeaturedCarousel({
   launches,
   onSelect,
-  onTrade
+  onTrade,
+  ethUsd
 }: {
   launches: LaunchData[];
   onSelect: (x: LaunchData) => void;
   onTrade: (token: Address, symbol: string, imageURI?: string) => void;
+  ethUsd: number;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -815,7 +816,7 @@ function FeaturedCarousel({
           const trading = isTradingLaunch(x);
           const hasSaleActivity = pct > 0;
           const hasCustomImage = Boolean(x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png"));
-          const dp = displayPrice(x);
+          const dp = displayPrice(x, ethUsd);
 
           return (
             <div
@@ -832,7 +833,7 @@ function FeaturedCarousel({
               <div className={`h-20 bg-gradient-to-br ${grad} relative overflow-hidden`}>
                 {hasCustomImage && (
                   <img
-                    src={x.imageURI}
+                    src={resolveImageURI(x.imageURI)}
                     alt={x.symbol}
                     className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-60"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -840,8 +841,10 @@ function FeaturedCarousel({
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 <div className="absolute bottom-2 left-3 flex items-center gap-2">
-                  <div className="w-9 h-9 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-sm backdrop-blur-sm">
-                    {x.symbol.slice(0, 2).toUpperCase()}
+                  <div className="w-9 h-9 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-sm backdrop-blur-sm overflow-hidden">
+                    {hasCustomImage ? (
+                      <img src={resolveImageURI(x.imageURI)} alt={x.symbol} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).replaceWith(document.createTextNode(x.symbol.slice(0,2).toUpperCase())); }} />
+                    ) : x.symbol.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
                     <div className="text-white font-bold text-sm leading-tight truncate max-w-[140px]">${x.symbol}</div>
@@ -893,7 +896,7 @@ function FeaturedCarousel({
                     <span className="text-lm-terminal-lightgray">{dp.label} </span>
                     <span className={`lm-mono font-bold ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.usd}</span>
                   </div>
-                  {(() => { const mcap = marketCap(x); return mcap !== "—" ? (
+                  {(() => { const mcap = mcapStr(x, ethUsd); return mcap !== "—" ? (
                     <div title={dp.eth}>
                       <span className="text-lm-terminal-lightgray">Mcap </span>
                       <span className="text-white lm-mono font-bold">{mcap}</span>
@@ -901,7 +904,7 @@ function FeaturedCarousel({
                   ) : ethRaised > 0n ? (
                     <div title={`${fmtEth(ethRaised)} ETH`}>
                       <span className="text-lm-terminal-lightgray">Raised </span>
-                      <span className="text-white lm-mono font-bold">{fmtUsd(Number(formatUnits(ethRaised, 18)) * ETH_USD)}</span>
+                      <span className="text-white lm-mono font-bold">{fmtUsd(Number(formatUnits(ethRaised, 18)) * ethUsd)}</span>
                     </div>
                   ) : x.saleSupply > 0n ? (
                     <div>
@@ -952,12 +955,14 @@ function LaunchDetailModal({
   x,
   onClose,
   onBuy,
-  onTrade
+  onTrade,
+  ethUsd
 }: {
   x: LaunchData;
   onClose: () => void;
   onBuy: (x: LaunchData, ethAmount: string) => void;
   onTrade?: (token: Address, symbol: string, imageURI?: string) => void;
+  ethUsd: number;
 }) {
   const [buyAmt, setBuyAmt] = useState("");
 
@@ -991,7 +996,7 @@ function LaunchDetailModal({
         <div className={`h-28 bg-gradient-to-br ${grad} relative overflow-hidden`}>
           {x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png") && (
             <img
-              src={x.imageURI}
+              src={resolveImageURI(x.imageURI)}
               alt={x.symbol}
               className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -1009,8 +1014,10 @@ function LaunchDetailModal({
             </svg>
           </button>
           <div className="absolute bottom-3 left-4 flex items-center gap-3">
-            <div className="w-12 h-12 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm">
-              {x.symbol.slice(0, 2).toUpperCase()}
+            <div className="w-12 h-12 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm overflow-hidden">
+              {x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png") ? (
+                <img src={resolveImageURI(x.imageURI)} alt={x.symbol} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).replaceWith(document.createTextNode(x.symbol.slice(0,2).toUpperCase())); }} />
+              ) : x.symbol.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
               <div className="text-white font-bold text-lg leading-tight truncate max-w-[200px]">${x.symbol}</div>
@@ -1052,7 +1059,7 @@ function LaunchDetailModal({
           )}
 
           {/* Stats */}
-          {(() => { const dp = displayPrice(x); const mcap = marketCap(x); const ethRaisedUsd = Number(formatUnits(ethRaised, 18)) * ETH_USD; return (
+          {(() => { const dp = displayPrice(x, ethUsd); const mcap = mcapStr(x, ethUsd); const ethRaisedUsd = Number(formatUnits(ethRaised, 18)) * ethUsd; return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2" title={dp.eth}>
               <div className="text-lm-terminal-lightgray text-[10px]">{dp.label}</div>
@@ -1158,7 +1165,7 @@ function LaunchDetailModal({
    Launches Index (with carousel + grid)
    ══════════════════════════════════════════════════════ */
 
-function LaunchesIndex() {
+function LaunchesIndex({ ethUsd }: { ethUsd: number }) {
   const { address, walletClient, requireCorrectChain } = useWallet();
   const [launches, setLaunches] = useState<LaunchData[]>([]);
   const [status, setStatus] = useState<string>("");
@@ -1169,6 +1176,10 @@ function LaunchesIndex() {
   const [buyAmounts, setBuyAmounts] = useState<Record<string, string>>({});
   const [selectedLaunch, setSelectedLaunch] = useState<LaunchData | null>(null);
   const [swapTarget, setSwapTarget] = useState<{ token: Address; symbol: string; imageURI?: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"newest" | "mcap" | "price" | "sale">("newest");
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null);
   const factory = config.launcherFactory as Address;
   const cacheHydratedRef = useRef(false);
   const lastFactoryRef = useRef<Address | null>(null);
@@ -1505,256 +1516,408 @@ function LaunchesIndex() {
     return deduped;
   }, [deduped, filter]);
 
+  const searched = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filtered;
+    return filtered.filter((l) =>
+      l.symbol.toLowerCase().includes(q) ||
+      l.name.toLowerCase().includes(q) ||
+      l.token.toLowerCase().includes(q)
+    );
+  }, [filtered, searchQuery]);
+
+  function getMcapNum(x: LaunchData): number {
+    let priceEth = 0;
+    const trading = isTradingLaunch(x);
+    if (trading && x.marketPriceEth && x.marketPriceEth > 0) priceEth = x.marketPriceEth;
+    else if (x.priceWeiPerToken > 0n) priceEth = Number(formatEther(x.priceWeiPerToken));
+    if (priceEth <= 0 || x.saleSupply <= 0n) return 0;
+    return priceEth * ethUsd * Number(formatUnits(x.saleSupply, 18));
+  }
+
+  function getPriceNum(x: LaunchData): number {
+    const trading = isTradingLaunch(x);
+    if (trading && x.marketPriceEth && x.marketPriceEth > 0) return x.marketPriceEth * ethUsd;
+    if (x.priceWeiPerToken > 0n) return Number(formatEther(x.priceWeiPerToken)) * ethUsd;
+    return 0;
+  }
+
+  const sorted = useMemo(() => {
+    const arr = [...searched];
+    switch (sortBy) {
+      case "mcap": arr.sort((a, b) => getMcapNum(b) - getMcapNum(a)); break;
+      case "price": arr.sort((a, b) => getPriceNum(b) - getPriceNum(a)); break;
+      case "sale": arr.sort((a, b) => salePct(b) - salePct(a)); break;
+      default: break;
+    }
+    return arr;
+  }, [searched, sortBy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visible = useMemo(() => sorted.slice(0, visibleCount), [sorted, visibleCount]);
+  const hasMore = visibleCount < sorted.length;
+
+  useEffect(() => { setVisibleCount(12); }, [filter, searchQuery, sortBy]);
+
+  function copyAddress(addr: string) {
+    navigator.clipboard.writeText(addr).catch(() => {});
+    setCopiedAddr(addr);
+    setTimeout(() => setCopiedAddr((c) => c === addr ? null : c), 1500);
+  }
+
+  const liveCount = deduped.filter((l) => isTradingLaunch(l)).length;
+  const openCount = deduped.filter((l) => !isTradingLaunch(l)).length;
+
   return (
     <div className="space-y-4">
-      {/* ── Featured Carousel — show top trading tokens and active sales ── */}
+      {/* ── Featured Carousel ── */}
       {(() => {
         const featured = deduped
           .filter((l) => isTradingLaunch(l) || (l.saleSupply > 0n && l.remaining > 0n))
           .slice(0, 8);
         return featured.length > 0 ? (
-          <FeaturedCarousel launches={featured} onSelect={setSelectedLaunch} onTrade={(token, symbol, imageURI) => setSwapTarget({ token, symbol, imageURI })} />
+          <FeaturedCarousel launches={featured} onSelect={setSelectedLaunch} onTrade={(token, symbol, imageURI) => setSwapTarget({ token, symbol, imageURI })} ethUsd={ethUsd} />
         ) : null;
       })()}
 
-      {/* ── Detail Modal ── */}
+      {/* ── Modals ── */}
       {selectedLaunch && (
         <LaunchDetailModal
           x={selectedLaunch}
           onClose={() => setSelectedLaunch(null)}
           onBuy={(x, amt) => quickBuy(x, amt)}
           onTrade={(token, symbol, imageURI) => setSwapTarget({ token, symbol, imageURI })}
+          ethUsd={ethUsd}
         />
       )}
-
       {swapTarget && (
-        <MiniSwapModal
-          open
-          onClose={() => setSwapTarget(null)}
-          token={swapTarget.token}
-          symbol={swapTarget.symbol}
-          imageURI={swapTarget.imageURI}
-        />
+        <MiniSwapModal open onClose={() => setSwapTarget(null)} token={swapTarget.token} symbol={swapTarget.symbol} imageURI={swapTarget.imageURI} />
       )}
 
-      {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-1">
-          {(["all", "open", "finalized"] as const).map((f) => (
-            <button key={f} type="button" onClick={() => setFilter(f)}
-              className={`text-[10px] px-2 py-1 border transition-colors capitalize ${filter === f ? "border-lm-orange text-lm-orange bg-lm-orange/5" : "border-lm-terminal-gray text-lm-gray hover:border-lm-gray"}`}>
-              {f === "all"
-                ? `All (${deduped.length})`
-                : f === "open"
-                  ? `Open (${deduped.filter((l) => !isTradingLaunch(l)).length})`
-                  : `Live (${deduped.filter((l) => isTradingLaunch(l)).length})`}
-            </button>
-          ))}
+      {/* ── Stats Banner ── */}
+      {deduped.length > 0 && !loading && (
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2.5 text-center">
+            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Total Tokens</div>
+            <div className="text-white font-bold text-lg lm-mono">{deduped.length}</div>
+          </div>
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2.5 text-center">
+            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Live Trading</div>
+            <div className="text-lm-green font-bold text-lg lm-mono">{liveCount}</div>
+          </div>
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2.5 text-center">
+            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Open Sales</div>
+            <div className="text-lm-orange font-bold text-lg lm-mono">{openCount}</div>
+          </div>
         </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => refresh({ fullReindex: true })}
-            disabled={loading}
-            className="text-[10px] px-2 py-1 border border-lm-terminal-gray text-lm-gray hover:border-lm-orange hover:text-lm-orange transition-colors disabled:opacity-40 disabled:pointer-events-none"
-            title="Rescans all LaunchCreated events from the factory start block"
-          >
-            {loading ? "..." : "Index All"}
-          </button>
-          <button
-            type="button"
-            onClick={() => refresh()}
-            disabled={loading}
-            className="text-[10px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors disabled:opacity-40 disabled:pointer-events-none"
-          >
-            {loading ? "..." : "Refresh"}
-          </button>
-          {deduped.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                try { window.localStorage.removeItem(cacheKeyForLaunches(factory)); } catch { /**/ }
-                try { window.localStorage.removeItem(indexStateKey(factory)); } catch { /**/ }
-                setLaunches([]);
-                launchesRef.current = [];
-                indexedToBlockRef.current = null;
-                cacheHydratedRef.current = false;
-                refresh().catch(() => {});
-              }}
-              className="text-[10px] px-2 py-1 border border-lm-terminal-gray text-lm-gray hover:border-lm-red hover:text-lm-red transition-colors"
-              title="Clears your local cached launches (does not affect on-chain data)"
-            >
-              Clear Cache
-            </button>
+      )}
+
+      {/* ── Search + Sort + Filters Toolbar ── */}
+      <div className="space-y-2">
+        {/* Search bar */}
+        <div className="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-lm-terminal-lightgray pointer-events-none">
+            <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, symbol, or address..."
+            className="w-full h-9 pl-9 pr-3 bg-lm-terminal-darkgray border border-lm-terminal-gray text-white text-sm placeholder:text-lm-terminal-lightgray focus:outline-none focus:border-lm-orange transition-colors"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-lm-terminal-lightgray hover:text-white text-lg leading-none px-1">&times;</button>
           )}
+        </div>
+
+        {/* Filters + Sort + Actions row */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            {(["all", "finalized", "open"] as const).map((f) => {
+              const count = f === "all" ? deduped.length : f === "open" ? openCount : liveCount;
+              const label = f === "all" ? "All" : f === "finalized" ? "Live" : "Open";
+              return (
+                <button key={f} type="button" onClick={() => setFilter(f)}
+                  className={`text-[11px] px-3 py-1.5 border transition-colors font-medium ${
+                    filter === f
+                      ? f === "finalized" ? "border-lm-green text-lm-green bg-lm-green/5" : f === "open" ? "border-lm-orange text-lm-orange bg-lm-orange/5" : "border-lm-orange text-lm-orange bg-lm-orange/5"
+                      : "border-lm-terminal-gray text-lm-terminal-lightgray hover:border-lm-gray hover:text-white"
+                  }`}>
+                  {label} <span className="opacity-60 ml-0.5">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Sort */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="text-[11px] h-8 px-2 bg-lm-terminal-darkgray border border-lm-terminal-gray text-lm-terminal-lightgray focus:outline-none focus:border-lm-orange cursor-pointer"
+            >
+              <option value="newest">Newest First</option>
+              <option value="mcap">Market Cap ↓</option>
+              <option value="price">Price ↓</option>
+              <option value="sale">Sale % ↓</option>
+            </select>
+
+            {/* Refresh */}
+            <button type="button" onClick={() => refresh()} disabled={loading}
+              className="text-[11px] h-8 px-3 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors disabled:opacity-40 font-medium flex items-center gap-1.5">
+              {loading ? (
+                <span className="lm-spinner flex-shrink-0" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                  <path fillRule="evenodd" d="M13.836 2.477a.75.75 0 01.75.75v3.182a.75.75 0 01-.75.75h-3.182a.75.75 0 010-1.5h1.37l-.84-.841a4.5 4.5 0 00-7.08.932.75.75 0 01-1.3-.75 6 6 0 019.44-1.242l.842.84V3.227a.75.75 0 01.75-.75zm-.911 7.5A.75.75 0 0113.199 11a6 6 0 01-9.44 1.241l-.84-.84v1.371a.75.75 0 01-1.5 0V9.591a.75.75 0 01.75-.75h3.182a.75.75 0 010 1.5h-1.37l.84.84a4.5 4.5 0 007.08-.932.75.75 0 011.224-.272z" clipRule="evenodd" />
+                </svg>
+              )}
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
-      {loading && <div className="text-lm-gray text-xs animate-pulse text-center py-4">Indexing launches...</div>}
-      {status && !loading && <div className="text-lm-red text-xs">{status}</div>}
-
-      {/* ── Grid List ── */}
-      {filtered.length === 0 && !loading ? (
-        <div className="text-lm-gray text-sm text-center py-8">No launches found. Be the first to create one!</div>
-      ) : (
+      {/* ── Loading Skeletons ── */}
+      {loading && deduped.length === 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((x) => {
-            const key = x.launch;
-            const pct = salePct(x);
-            const xSold = effectiveSold(x);
-            const soldOut = x.remaining === 0n && x.saleSupply > 0n;
-            const ethRaised = x.priceWeiPerToken > 0n && xSold > 0n ? (xSold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
-            const trading = isTradingLaunch(x);
-            const hasSaleActivity = pct > 0;
-            const tokenEstimate = (buyAmounts[key] && x.priceWeiPerToken > 0n) ? (() => {
-              try { const e = parseEther(buyAmounts[key] || "0"); return e > 0n ? fmtTokens((e * 10n ** 18n) / x.priceWeiPerToken) : ""; } catch { return ""; }
-            })() : "";
-            const bStatus = buyStatus[key];
-            const bType = buyType[key] || "info";
-            const bColor = bType === "success" ? "text-lm-green" : bType === "error" ? "text-lm-red" : "text-lm-gray";
-            const feeKey = key + "-fee";
-            const feeStatus = buyStatus[feeKey];
-            const feeType = buyType[feeKey] || "info";
-            const feeColor = feeType === "success" ? "text-lm-green" : feeType === "error" ? "text-lm-red" : "text-lm-gray";
-            const dp = displayPrice(x);
-            const grad = symbolColor(x.symbol);
-            const hasCustomImage = Boolean(x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png"));
-
-            return (
-              <div key={key} className={`bg-lm-black border transition-all group cursor-pointer ${
-                trading ? "border-lm-terminal-gray hover:border-lm-green/50" : "border-lm-terminal-gray hover:border-lm-orange/50"
-              }`}>
-                {/* Card banner */}
-                <div className={`h-16 bg-gradient-to-br ${grad} relative overflow-hidden`} onClick={() => setSelectedLaunch(x)}>
-                  {hasCustomImage && (
-                    <img src={x.imageURI} alt={x.symbol} className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                  <div className="absolute bottom-2 left-2.5 flex items-center gap-2">
-                    <div className="w-8 h-8 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-xs backdrop-blur-sm">
-                      {x.symbol.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-white font-bold text-sm leading-tight truncate max-w-[130px]">${x.symbol}</div>
-                      <div className="text-white/60 text-[9px] leading-tight truncate max-w-[130px]">{x.name}</div>
-                    </div>
-                  </div>
-                  <div className="absolute top-1.5 right-1.5">
-                    <span className={`text-[8px] px-1.5 py-0.5 font-bold ${
-                      trading
-                        ? "bg-lm-green/20 text-lm-green border border-lm-green/40"
-                        : soldOut
-                          ? "bg-white/10 text-white/60 border border-white/20"
-                          : "bg-lm-orange/20 text-lm-orange border border-lm-orange/40"
-                    }`}>
-                      {trading ? "TRADING" : soldOut ? "SOLD OUT" : "SALE"}
-                    </span>
-                  </div>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-lm-black border border-lm-terminal-gray animate-pulse">
+              <div className="h-20 bg-lm-terminal-darkgray" />
+              <div className="p-3 space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="h-14 bg-lm-terminal-darkgray rounded" />
+                  <div className="h-14 bg-lm-terminal-darkgray rounded" />
                 </div>
-
-                {/* Card body */}
-                <div className="p-2.5 space-y-2">
-                  {/* Price + Mcap */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5" title={dp.eth}>
-                      <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">{dp.label}</div>
-                      <div className={`lm-mono text-[11px] font-bold mt-0.5 ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.usd}</div>
-                      <div className="text-lm-terminal-lightgray text-[8px] lm-mono mt-0.5">{dp.eth}</div>
-                    </div>
-                    <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5">
-                      {(() => { const mcap = marketCap(x); return mcap !== "—" ? (
-                        <>
-                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Mcap</div>
-                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{mcap}</div>
-                        </>
-                      ) : ethRaised > 0n ? (
-                        <>
-                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Raised</div>
-                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5" title={`${fmtEth(ethRaised)} ETH`}>{fmtUsd(Number(formatUnits(ethRaised, 18)) * ETH_USD)}</div>
-                        </>
-                      ) : x.saleSupply > 0n ? (
-                        <>
-                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Supply</div>
-                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{fmtSupply(x.saleSupply)}</div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Status</div>
-                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{trading ? "Live" : "New"}</div>
-                        </>
-                      ); })()}
-                    </div>
-                  </div>
-
-                  {/* Sale progress bar — only show when there's meaningful sale data */}
-                  {hasSaleActivity && x.saleSupply > 0n && (
-                    <div>
-                      <div className="flex justify-between text-[9px] mb-0.5">
-                        <span className="text-lm-terminal-lightgray">Sale {fmtSupply(xSold)} / {fmtSupply(x.saleSupply)}</span>
-                        <span className="text-white font-bold">{pct.toFixed(1)}%</span>
-                      </div>
-                      <div className="w-full h-1 bg-lm-terminal-darkgray">
-                        <div className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, Math.max(pct > 0 ? 1 : 0, pct))}%` }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quick Buy */}
-                  {!trading && x.remaining > 0n && (
-                    <div className="space-y-1">
-                      <div className="flex gap-1 items-end">
-                        <div className="flex-1">
-                          <Input
-                            value={buyAmounts[key] || ""}
-                            onValueChange={(v) => setBuyAmounts((p) => ({ ...p, [key]: v }))}
-                            placeholder="ETH"
-                          />
-                        </div>
-                        <button type="button" onClick={() => quickBuy(x)} disabled={!address || buyType[key] === "info"}
-                          className="text-[10px] px-2.5 py-1.5 bg-lm-orange text-black font-bold hover:bg-lm-orange/80 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap">
-                          {buyType[key] === "info" ? "..." : "Buy"}
-                        </button>
-                      </div>
-                      {tokenEstimate && <div className="text-[9px] text-lm-terminal-lightgray">≈ <span className="text-white font-bold">{tokenEstimate} ${x.symbol}</span></div>}
-                      {bStatus && <div className={`text-[9px] ${bColor}`}>{bStatus}</div>}
-                    </div>
-                  )}
-
-                  {/* Actions for trading tokens */}
-                  {trading && (
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {x.pool && x.pool !== ZERO && (
-                        <button type="button" onClick={(e) => { e.stopPropagation(); setSwapTarget({ token: x.token, symbol: x.symbol, imageURI: x.imageURI }); }}
-                          className="text-[9px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/10 transition-colors font-bold">Trade</button>
-                      )}
-                      {x.stakingVault && x.stakingVault !== ZERO && (
-                        <Link href={`/launcher/${x.launch}`} className="text-[9px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/10 transition-colors font-bold">Stake</Link>
-                      )}
-                      {x.feeSplitter && x.feeSplitter !== ZERO && (
-                        <button type="button" onClick={() => collectFees(x)} disabled={buyType[x.launch + "-fee"] === "info"} className="text-[9px] px-2 py-1 border border-lm-terminal-gray text-lm-terminal-lightgray hover:border-lm-orange hover:text-lm-orange transition-colors disabled:opacity-40 disabled:pointer-events-none">{buyType[x.launch + "-fee"] === "info" ? "..." : "Fees"}</button>
-                      )}
-                      {feeStatus && <span className={`text-[9px] ${feeColor}`}>{feeStatus}</span>}
-                    </div>
-                  )}
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between pt-1.5 border-t border-lm-terminal-gray/50">
-                    <div className="flex items-center gap-2 text-[9px] text-lm-terminal-lightgray">
-                      {x.blockTimestamp && <span>{timeAgo(x.blockTimestamp)}</span>}
-                      <a href={explorerAddr(x.creator)} target="_blank" rel="noreferrer" className="hover:text-lm-orange transition-colors lm-mono">
-                        {short(x.creator)}
-                      </a>
-                    </div>
-                    <button type="button" onClick={() => setSelectedLaunch(x)} className="text-[9px] text-lm-orange hover:underline font-bold">
-                      Details →
-                    </button>
-                  </div>
+                <div className="h-1 bg-lm-terminal-darkgray rounded" />
+                <div className="flex gap-2">
+                  <div className="h-7 w-16 bg-lm-terminal-darkgray rounded" />
+                  <div className="h-7 w-16 bg-lm-terminal-darkgray rounded" />
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
+
+      {status && !loading && <div className="text-lm-red text-xs px-1">{status}</div>}
+
+      {/* ── Search results info ── */}
+      {searchQuery && !loading && (
+        <div className="text-[11px] text-lm-terminal-lightgray px-1">
+          {sorted.length === 0 ? (
+            <span>No tokens match &ldquo;<span className="text-white">{searchQuery}</span>&rdquo;</span>
+          ) : (
+            <span>Showing <span className="text-white font-bold">{sorted.length}</span> result{sorted.length !== 1 ? "s" : ""} for &ldquo;<span className="text-white">{searchQuery}</span>&rdquo;</span>
+          )}
+        </div>
+      )}
+
+      {/* ── Empty State ── */}
+      {sorted.length === 0 && !loading && !searchQuery ? (
+        <div className="text-center py-12 space-y-3">
+          <div className="text-lm-terminal-lightgray text-3xl">🚀</div>
+          <div className="text-white font-bold text-sm">No launches found yet</div>
+          <div className="text-lm-terminal-lightgray text-xs max-w-xs mx-auto">Be the first to launch a token! Switch to the Create tab to deploy your own meme coin with instant DEX liquidity.</div>
+        </div>
+      ) : sorted.length > 0 ? (
+        <>
+          {/* ── Token Grid ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {visible.map((x) => {
+              const key = x.launch;
+              const pct = salePct(x);
+              const xSold = effectiveSold(x);
+              const soldOut = x.remaining === 0n && x.saleSupply > 0n;
+              const ethRaised = x.priceWeiPerToken > 0n && xSold > 0n ? (xSold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
+              const trading = isTradingLaunch(x);
+              const hasSaleActivity = pct > 0;
+              const tokenEstimate = (buyAmounts[key] && x.priceWeiPerToken > 0n) ? (() => {
+                try { const e = parseEther(buyAmounts[key] || "0"); return e > 0n ? fmtTokens((e * 10n ** 18n) / x.priceWeiPerToken) : ""; } catch { return ""; }
+              })() : "";
+              const bStatus = buyStatus[key];
+              const bType = buyType[key] || "info";
+              const bColor = bType === "success" ? "text-lm-green" : bType === "error" ? "text-lm-red" : "text-lm-gray";
+              const feeKey = key + "-fee";
+              const feeStatus = buyStatus[feeKey];
+              const feeType = buyType[feeKey] || "info";
+              const feeColor = feeType === "success" ? "text-lm-green" : feeType === "error" ? "text-lm-red" : "text-lm-gray";
+              const dp = displayPrice(x, ethUsd);
+              const grad = symbolColor(x.symbol);
+              const hasCustomImage = Boolean(x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png"));
+              const imgSrc = resolveImageURI(x.imageURI);
+              const isNew = x.blockTimestamp && (Date.now() / 1000 - x.blockTimestamp) < 86400;
+
+              return (
+                <div key={key} className={`bg-lm-black border transition-all duration-200 group cursor-pointer hover:-translate-y-0.5 hover:shadow-lg ${
+                  trading ? "border-lm-terminal-gray hover:border-lm-green/60 hover:shadow-lm-green/5" : "border-lm-terminal-gray hover:border-lm-orange/60 hover:shadow-lm-orange/5"
+                }`}>
+                  {/* Card banner */}
+                  <div className={`h-20 bg-gradient-to-br ${grad} relative overflow-hidden`} onClick={() => setSelectedLaunch(x)}>
+                    {hasCustomImage && (
+                      <img src={imgSrc} alt="" className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                    {/* Token identity */}
+                    <div className="absolute bottom-2.5 left-3 flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-lg bg-black/60 border border-white/20 flex items-center justify-center text-white font-bold text-xs backdrop-blur-sm overflow-hidden shadow-lg">
+                        {hasCustomImage ? (
+                          <img src={imgSrc} alt={x.symbol} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).replaceWith(document.createTextNode(x.symbol.slice(0,2).toUpperCase())); }} />
+                        ) : x.symbol.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-white font-bold text-sm leading-tight truncate max-w-[130px]">${x.symbol}</div>
+                        <div className="text-white/50 text-[10px] leading-tight truncate max-w-[130px]">{x.name}</div>
+                      </div>
+                    </div>
+
+                    {/* Badges */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                      {isNew && (
+                        <span className="text-[7px] px-1 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-400/40 font-bold">NEW</span>
+                      )}
+                      <span className={`text-[8px] px-1.5 py-0.5 font-bold ${
+                        trading
+                          ? "bg-lm-green/20 text-lm-green border border-lm-green/40"
+                          : soldOut
+                            ? "bg-white/10 text-white/60 border border-white/20"
+                            : "bg-lm-orange/20 text-lm-orange border border-lm-orange/40"
+                      }`}>
+                        {trading ? "LIVE" : soldOut ? "SOLD OUT" : "SALE"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card body */}
+                  <div className="p-3 space-y-2.5">
+                    {/* Price + Mcap */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-lm-terminal-darkgray/50 border border-lm-terminal-gray/50 p-2 rounded-sm" title={dp.eth}>
+                        <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">{dp.label}</div>
+                        <div className={`lm-mono text-xs font-bold mt-0.5 ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.usd}</div>
+                        <div className="text-lm-terminal-lightgray text-[8px] lm-mono mt-0.5">{dp.eth}</div>
+                      </div>
+                      <div className="bg-lm-terminal-darkgray/50 border border-lm-terminal-gray/50 p-2 rounded-sm">
+                        {(() => { const mcap = mcapStr(x, ethUsd); return mcap !== "—" ? (
+                          <>
+                            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Mcap</div>
+                            <div className="text-white lm-mono text-xs font-bold mt-0.5">{mcap}</div>
+                          </>
+                        ) : ethRaised > 0n ? (
+                          <>
+                            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Raised</div>
+                            <div className="text-white lm-mono text-xs font-bold mt-0.5" title={`${fmtEth(ethRaised)} ETH`}>{fmtUsd(Number(formatUnits(ethRaised, 18)) * ethUsd)}</div>
+                          </>
+                        ) : x.saleSupply > 0n ? (
+                          <>
+                            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Supply</div>
+                            <div className="text-white lm-mono text-xs font-bold mt-0.5">{fmtSupply(x.saleSupply)}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-lm-terminal-lightgray text-[9px] lm-upper tracking-wider">Status</div>
+                            <div className="text-white lm-mono text-xs font-bold mt-0.5">{trading ? "Live" : "New"}</div>
+                          </>
+                        ); })()}
+                      </div>
+                    </div>
+
+                    {/* Sale progress bar */}
+                    {hasSaleActivity && x.saleSupply > 0n && (
+                      <div>
+                        <div className="flex justify-between text-[9px] mb-1">
+                          <span className="text-lm-terminal-lightgray">{fmtSupply(xSold)} / {fmtSupply(x.saleSupply)}</span>
+                          <span className="text-white font-bold">{pct.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-lm-terminal-darkgray rounded-full overflow-hidden">
+                          <div className={`h-full transition-all rounded-full ${trading ? "bg-gradient-to-r from-lm-green/80 to-lm-green" : "bg-gradient-to-r from-lm-orange/80 to-lm-orange"}`} style={{ width: `${Math.min(100, Math.max(pct > 0 ? 2 : 0, pct))}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Quick Buy */}
+                    {!trading && x.remaining > 0n && (
+                      <div className="space-y-1.5">
+                        <div className="flex gap-1.5 items-end">
+                          <div className="flex-1">
+                            <Input
+                              value={buyAmounts[key] || ""}
+                              onValueChange={(v) => setBuyAmounts((p) => ({ ...p, [key]: v }))}
+                              placeholder="ETH amount"
+                            />
+                          </div>
+                          <button type="button" onClick={() => quickBuy(x)} disabled={!address || buyType[key] === "info"}
+                            className="text-[10px] px-3 py-1.5 bg-lm-orange text-black font-bold hover:bg-lm-orange/80 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap rounded-sm">
+                            {buyType[key] === "info" ? "..." : "Buy"}
+                          </button>
+                        </div>
+                        {tokenEstimate && <div className="text-[9px] text-lm-terminal-lightgray">≈ <span className="text-white font-bold">{tokenEstimate} ${x.symbol}</span></div>}
+                        {bStatus && <div className={`text-[9px] ${bColor}`}>{bStatus}</div>}
+                      </div>
+                    )}
+
+                    {/* Actions row */}
+                    {trading && (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {x.pool && x.pool !== ZERO && (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setSwapTarget({ token: x.token, symbol: x.symbol, imageURI: x.imageURI }); }}
+                            className="text-[10px] px-2.5 py-1 border border-lm-green text-lm-green hover:bg-lm-green/10 transition-colors font-bold rounded-sm">Trade</button>
+                        )}
+                        {x.stakingVault && x.stakingVault !== ZERO && (
+                          <Link href={`/launcher/${x.launch}`} className="text-[10px] px-2.5 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/10 transition-colors font-bold rounded-sm">Stake</Link>
+                        )}
+                        {x.feeSplitter && x.feeSplitter !== ZERO && (
+                          <button type="button" onClick={() => collectFees(x)} disabled={buyType[feeKey] === "info"} className="text-[10px] px-2.5 py-1 border border-lm-terminal-gray text-lm-terminal-lightgray hover:border-lm-orange hover:text-lm-orange transition-colors disabled:opacity-40 rounded-sm">{buyType[feeKey] === "info" ? "..." : "Fees"}</button>
+                        )}
+                        {feeStatus && <span className={`text-[9px] ${feeColor} truncate max-w-[120px]`}>{feeStatus}</span>}
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between pt-2 border-t border-lm-terminal-gray/30">
+                      <div className="flex items-center gap-2 text-[10px] text-lm-terminal-lightgray">
+                        {x.blockTimestamp && <span>{timeAgo(x.blockTimestamp)}</span>}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); copyAddress(x.token); }}
+                          title="Copy token address" className="hover:text-lm-orange transition-colors lm-mono flex items-center gap-1">
+                          {short(x.token)}
+                          {copiedAddr === x.token ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-lm-green"><path fillRule="evenodd" d="M12.416 3.376a.75.75 0 01.208 1.04l-5 7.5a.75.75 0 01-1.154.114l-3-3a.75.75 0 011.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 011.04-.207z" clipRule="evenodd" /></svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 opacity-40"><path d="M5.5 3.5A1.5 1.5 0 017 2h2.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 01.439 1.061V9.5A1.5 1.5 0 0112 11V3.5H5.5z" /><path d="M3.5 5A1.5 1.5 0 002 6.5v6A1.5 1.5 0 003.5 14h5a1.5 1.5 0 001.5-1.5V6.5A1.5 1.5 0 008.5 5h-5z" /></svg>
+                          )}
+                        </button>
+                      </div>
+                      <button type="button" onClick={() => setSelectedLaunch(x)} className="text-[10px] text-lm-orange hover:underline font-bold">
+                        Details →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Load More ── */}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button type="button" onClick={() => setVisibleCount((c) => c + 12)}
+                className="text-xs px-6 py-2 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors font-medium">
+                Load More <span className="opacity-60 ml-1">({sorted.length - visibleCount} remaining)</span>
+              </button>
+            </div>
+          )}
+
+          {/* ── Showing count ── */}
+          {sorted.length > 0 && (
+            <div className="text-[10px] text-lm-terminal-lightgray text-center">
+              Showing {Math.min(visibleCount, sorted.length)} of {sorted.length} tokens
+            </div>
+          )}
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1949,14 +2112,15 @@ function StakeTab() {
 export function LauncherBootstrap({ LauncherPanel }: { LauncherPanel: React.ComponentType }) {
   const tabs = useMemo(
     () => [
-      { id: "launches", label: "Launches", hint: "Discover + buy tokens" },
-      { id: "create", label: "Create", hint: "Launch a new meme coin" },
+      { id: "launches", label: "Launcher", hint: "Discover + trade tokens" },
+      { id: "create", label: "Create", hint: "Launch a new token" },
       { id: "stake", label: "Stake/Yield", hint: "Your staking positions" }
     ],
     []
   );
   const [active, setActive] = useState("launches");
   const [infoOpen, setInfoOpen] = useState(false);
+  const ethUsd = useEthPrice();
 
   const handleIntent = useCallback((intent: IntentAction) => {
     const createTypes = ["launch_token", "finalize_launch"];
@@ -1980,6 +2144,10 @@ export function LauncherBootstrap({ LauncherPanel }: { LauncherPanel: React.Comp
         hint="Launch meme coins with instant DEX liquidity, fee splitting, and staking rewards."
         right={(
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] text-lm-terminal-lightgray lm-mono hidden sm:inline-flex items-center gap-1" title="Live ETH/USD price from CoinGecko">
+              <span className="w-1.5 h-1.5 rounded-full bg-lm-green animate-pulse" />
+              ETH <span className="text-white font-bold">${ethUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </span>
             <TerminalTabs tabs={tabs} active={active} onChange={setActive} />
             <Button variant="ghost" size="sm" onClick={() => setInfoOpen(true)} aria-label="Launcher information">
               Info
@@ -1987,7 +2155,7 @@ export function LauncherBootstrap({ LauncherPanel }: { LauncherPanel: React.Comp
           </div>
         )}
       >
-        {active === "launches" ? <LaunchesIndex /> : null}
+        {active === "launches" ? <LaunchesIndex ethUsd={ethUsd} /> : null}
         {active === "create" ? <LauncherPanel /> : null}
         {active === "stake" ? <StakeTab /> : null}
       </Panel>

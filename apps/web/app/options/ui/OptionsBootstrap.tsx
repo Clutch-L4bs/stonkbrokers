@@ -9,6 +9,7 @@ import { useWallet } from "../../wallet/WalletProvider";
 import { publicClient, robinhoodTestnet } from "../../providers";
 import { config } from "../../lib/config";
 import { IntentTerminal, IntentAction } from "../../components/IntentTerminal";
+import { useEthPrice, fmtUsd as fmtUsdLive } from "../../lib/useEthPrice";
 import {
   ERC20MetadataAbi,
   StonkCoveredCallVaultAbi,
@@ -115,6 +116,7 @@ async function getMeta(addr: Address): Promise<{ sym: string; dec: number }> {
    ══════════════════════════════════════════════════════════════ */
 
 function TradeTab() {
+  const ethUsd = useEthPrice();
   const { address, walletClient, requireCorrectChain } = useWallet();
   const vault = config.coveredCallVault as Address;
   const [offers, setOffers] = useState<OfferData[]>([]);
@@ -337,16 +339,19 @@ function TradeTab() {
                         <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Collateral</div>
                         <div className="text-white lm-mono text-xs font-bold mt-0.5">{fmtBal(formatUnits(o.underlyingAmount, o.uDec))}</div>
                         <div className="text-lm-terminal-lightgray">{o.uSym}</div>
+                        {(o.uSym === "WETH" || o.uSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(o.underlyingAmount, o.uDec)) * ethUsd)}</div>}
                       </div>
                       <div className="bg-lm-black p-2 border border-lm-terminal-gray">
                         <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Strike</div>
                         <div className="text-white lm-mono text-xs font-bold mt-0.5">{fmtBal(formatUnits(o.strikeQuoteAmount, o.qDec))}</div>
                         <div className="text-lm-terminal-lightgray">{o.qSym}</div>
+                        {(o.qSym === "WETH" || o.qSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(o.strikeQuoteAmount, o.qDec)) * ethUsd)}</div>}
                       </div>
                       <div className="bg-lm-black p-2 border border-lm-orange/20">
                         <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Premium</div>
                         <div className="text-lm-orange lm-mono text-xs font-bold mt-0.5">{fmtBal(formatUnits(o.premiumQuoteAmount, o.qDec))}</div>
                         <div className="text-lm-terminal-lightgray">{o.qSym}</div>
+                        {(o.qSym === "WETH" || o.qSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(o.premiumQuoteAmount, o.qDec)) * ethUsd)}</div>}
                       </div>
                       <div className="bg-lm-black p-2 border border-lm-terminal-gray">
                         <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Expires</div>
@@ -423,14 +428,17 @@ function TradeTab() {
                     <div>
                       <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Collateral</div>
                       <div className="text-white lm-mono text-xs font-bold">{fmtBal(formatUnits(p.underlyingAmount, p.uDec))} {p.uSym}</div>
+                      {(p.uSym === "WETH" || p.uSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(p.underlyingAmount, p.uDec)) * ethUsd)}</div>}
                     </div>
                     <div>
                       <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Exercise Cost</div>
                       <div className="text-white lm-mono text-xs font-bold">{fmtBal(formatUnits(p.strikeQuoteAmount, p.qDec))} {p.qSym}</div>
+                      {(p.qSym === "WETH" || p.qSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(p.strikeQuoteAmount, p.qDec)) * ethUsd)}</div>}
                     </div>
                     <div>
                       <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Premium Paid</div>
                       <div className="text-lm-terminal-lightgray lm-mono text-xs">{fmtBal(formatUnits(p.premiumQuoteAmount, p.qDec))} {p.qSym}</div>
+                      {(p.qSym === "WETH" || p.qSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(p.premiumQuoteAmount, p.qDec)) * ethUsd)}</div>}
                     </div>
                     <div>
                       <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Expires</div>
@@ -463,6 +471,7 @@ function TradeTab() {
    ══════════════════════════════════════════════════════════════ */
 
 function EarnTab() {
+  const ethUsd = useEthPrice();
   const { address, walletClient, requireCorrectChain } = useWallet();
   const vault = config.coveredCallVault as Address;
   const [offers, setOffers] = useState<OfferData[]>([]);
@@ -644,14 +653,17 @@ function EarnTab() {
                   <div>
                     <div className="text-lm-terminal-lightgray">Collateral Locked</div>
                     <div className="text-white lm-mono font-bold">{fmtBal(formatUnits(o.underlyingAmount, o.uDec))} {o.uSym}</div>
+                    {(o.uSym === "WETH" || o.uSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(o.underlyingAmount, o.uDec)) * ethUsd)}</div>}
                   </div>
                   <div>
                     <div className="text-lm-terminal-lightgray">Strike Price</div>
                     <div className="text-white lm-mono font-bold">{fmtBal(formatUnits(o.strikeQuoteAmount, o.qDec))} {o.qSym}</div>
+                    {(o.qSym === "WETH" || o.qSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(o.strikeQuoteAmount, o.qDec)) * ethUsd)}</div>}
                   </div>
                   <div>
                     <div className="text-lm-terminal-lightgray">Your Premium</div>
                     <div className="text-lm-green lm-mono font-bold">{fmtBal(formatUnits(o.premiumQuoteAmount, o.qDec))} {o.qSym}</div>
+                    {(o.qSym === "WETH" || o.qSym === "ETH") && <div className="text-lm-terminal-lightgray text-[8px] lm-mono">{fmtUsdLive(Number(formatUnits(o.premiumQuoteAmount, o.qDec)) * ethUsd)}</div>}
                   </div>
                   <div>
                     <div className="text-lm-terminal-lightgray">Expires</div>
@@ -697,6 +709,7 @@ export function OptionsBootstrap({ OptionsPanel }: { OptionsPanel: React.Compone
     []
   );
   const [active, setActive] = useState("trade");
+  const ethUsd = useEthPrice();
 
   const handleIntent = useCallback((intent: IntentAction) => {
     const tradeTypes = ["buy_option", "preview_offer"];
@@ -718,7 +731,15 @@ export function OptionsBootstrap({ OptionsPanel }: { OptionsPanel: React.Compone
       <Panel
         title="Options"
         hint="Covered calls backed by escrowed collateral. Each position is a tradeable ERC-721 NFT."
-        right={<TerminalTabs tabs={tabs} active={active} onChange={setActive} />}
+        right={(
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-lm-terminal-lightgray lm-mono hidden sm:inline-flex items-center gap-1" title="Live ETH/USD">
+              <span className="w-1.5 h-1.5 rounded-full bg-lm-green animate-pulse" />
+              ETH <span className="text-white font-bold">${ethUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </span>
+            <TerminalTabs tabs={tabs} active={active} onChange={setActive} />
+          </div>
+        )}
       >
         {active === "trade" ? <TradeTab /> : null}
         {active === "earn" ? <EarnTab /> : null}
