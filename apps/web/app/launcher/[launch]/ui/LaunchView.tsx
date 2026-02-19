@@ -86,6 +86,7 @@ export function LaunchView({ launch }: { launch: string }) {
   const [feeSplitter, setFeeSplitter] = useState<Address | undefined>();
   const [pool, setPool] = useState<Address | undefined>();
   const [sold, setSold] = useState<bigint>(0n);
+  const [remainingForSale, setRemainingForSale] = useState<bigint>(0n);
   const [saleSupply, setSaleSupply] = useState<bigint>(0n);
   const [priceWeiPerToken, setPriceWeiPerToken] = useState<bigint>(0n);
 
@@ -112,30 +113,47 @@ export function LaunchView({ launch }: { launch: string }) {
 
   async function refresh() {
     try {
-      const [token, sold_, supply_, price_, pool_, splitter_, vault_] = await Promise.all([
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "memeToken" }) as Promise<Address>,
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "sold" }) as Promise<bigint>,
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "saleSupply" }) as Promise<bigint>,
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "priceWeiPerToken" }) as Promise<bigint>,
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "pool" }) as Promise<Address>,
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "feeSplitter" }) as Promise<Address>,
-        publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "stakingVault" }) as Promise<Address>
+      const readLaunch = async <T,>(fn: string, fallback: T): Promise<T> => {
+        try {
+          return (await publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: fn as any })) as T;
+        } catch { return fallback; }
+      };
+
+      const [token, sold_, supply_, price_, remaining_, pool_, splitter_, vault_] = await Promise.all([
+        readLaunch<Address>("memeToken", ZERO_ADDR),
+        readLaunch<bigint>("sold", 0n),
+        readLaunch<bigint>("saleSupply", 0n),
+        readLaunch<bigint>("priceWeiPerToken", 0n),
+        readLaunch<bigint>("remainingForSale", 0n),
+        readLaunch<Address>("pool", ZERO_ADDR),
+        readLaunch<Address>("feeSplitter", ZERO_ADDR),
+        readLaunch<Address>("stakingVault", ZERO_ADDR),
       ]);
 
-      setMemeToken(token);
-      setSold(sold_);
+      const derivedSold = sold_ > 0n ? sold_ : (supply_ > 0n && remaining_ < supply_ ? supply_ - remaining_ : 0n);
+
+      setMemeToken(token !== ZERO_ADDR ? token : undefined);
+      setSold(derivedSold);
+      setRemainingForSale(remaining_);
       setSaleSupply(supply_);
       setPriceWeiPerToken(price_);
-      setPool(pool_);
-      setFeeSplitter(splitter_);
-      setStakingVault(vault_);
+      setPool(pool_ !== ZERO_ADDR ? pool_ : undefined);
+      setFeeSplitter(splitter_ !== ZERO_ADDR ? splitter_ : undefined);
+      setStakingVault(vault_ !== ZERO_ADDR ? vault_ : undefined);
 
-      const [sym, dec] = await Promise.all([
-        publicClient.readContract({ address: token, abi: ERC20MetadataAbi, functionName: "symbol" }) as Promise<string>,
-        publicClient.readContract({ address: token, abi: ERC20MetadataAbi, functionName: "decimals" }) as Promise<number>
-      ]);
+      if (token === ZERO_ADDR) {
+        setStatus("Could not read token address from launch contract.");
+        setStatusType("error");
+        setLoading(false);
+        return;
+      }
+
+      let sym = "TOKEN";
+      let dec = 18;
+      try { sym = (await publicClient.readContract({ address: token, abi: ERC20MetadataAbi, functionName: "symbol" })) as string; } catch { /* keep default */ }
+      try { dec = Number(await publicClient.readContract({ address: token, abi: ERC20MetadataAbi, functionName: "decimals" })); } catch { /* keep default */ }
       setTokenSymbol(sym);
-      setTokenDecimals(Number(dec));
+      setTokenDecimals(dec);
 
       if (vault_ && vault_ !== ZERO_ADDR) {
         try {
@@ -326,7 +344,7 @@ export function LaunchView({ launch }: { launch: string }) {
   }
 
   const soldPct = saleSupply === 0n ? 0 : Number((sold * 10_000n) / saleSupply) / 100;
-  const remaining = saleSupply > sold ? saleSupply - sold : 0n;
+  const remaining = remainingForSale > 0n ? remainingForSale : (saleSupply > sold ? saleSupply - sold : 0n);
   const ethRaised = priceWeiPerToken > 0n && sold > 0n ? (sold * priceWeiPerToken) / (10n ** 18n) : 0n;
   const isFinalized = pool !== undefined && pool !== ZERO_ADDR;
   const hasPending = pending0 > 0n || pending1 > 0n;

@@ -581,6 +581,12 @@ function LaunchDetailModal({
   onBuy: (x: LaunchData, ethAmount: string) => void;
 }) {
   const [buyAmt, setBuyAmt] = useState("");
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
   const trading = isTradingLaunch(x);
   const pct = salePct(x);
   const sold = effectiveSold(x);
@@ -1296,34 +1302,40 @@ function StakeTab() {
     setStatus("");
     try {
       const latest = await publicClient.getBlockNumber();
-      const fromBlock = latest > 100_000n ? latest - 100_000n : 0n;
+      const startBlock = BigInt(Math.max(0, Number(config.launcherFactoryStartBlock || 0)));
       const ev = parseAbiItem(
         "event LaunchCreated(address indexed creator,address indexed token,address indexed launch,string name,string symbol,string metadataURI,string imageURI)"
       );
-      const logs = await publicClient.getLogs({ address: factory, event: ev, fromBlock, toBlock: latest });
+      const CHUNK = 80_000n;
+      const allLogs: any[] = [];
+      for (let s = startBlock; s <= latest; s += CHUNK) {
+        const e = (s + CHUNK - 1n) > latest ? latest : (s + CHUNK - 1n);
+        const chunk = await publicClient.getLogs({ address: factory, event: ev, fromBlock: s, toBlock: e });
+        allLogs.push(...chunk);
+      }
       const seen = new Set<string>();
       const launchAddrs: Address[] = [];
-      for (const l of logs) {
+      for (const l of allLogs) {
         const la = (l.args.launch as Address).toLowerCase();
         if (seen.has(la)) continue;
         seen.add(la);
         launchAddrs.push(l.args.launch as Address);
       }
-      const results: StakeInfo[] = [];
-      for (const launchAddr of launchAddrs) {
+
+      async function probeStake(launchAddr: Address): Promise<StakeInfo | null> {
         try {
           const vaultAddr = (await publicClient.readContract({ address: launchAddr, abi: StonkLaunchAbi, functionName: "stakingVault" })) as Address;
-          if (!vaultAddr || vaultAddr === ZERO) continue;
-          const userInfo = (await publicClient.readContract({ address: vaultAddr, abi: StonkYieldStakingVaultAbi, functionName: "users", args: [address] })) as any;
+          if (!vaultAddr || vaultAddr === ZERO) return null;
+          const userInfo = (await publicClient.readContract({ address: vaultAddr, abi: StonkYieldStakingVaultAbi, functionName: "users", args: [address!] })) as any;
           const staked = userInfo.staked as bigint;
-          if (staked <= 0n) continue;
+          if (staked <= 0n) return null;
           const stakeToken = (await publicClient.readContract({ address: vaultAddr, abi: StonkYieldStakingVaultAbi, functionName: "stakeToken" })) as Address;
           let stakeSymbol = "TOKEN", stakeDecimals = 18;
           try { stakeSymbol = (await publicClient.readContract({ address: stakeToken, abi: ERC20MetadataAbi, functionName: "symbol" })) as string; } catch { /**/ }
           try { stakeDecimals = Number(await publicClient.readContract({ address: stakeToken, abi: ERC20MetadataAbi, functionName: "decimals" })); } catch { /**/ }
           let pending0 = 0n, pending1 = 0n;
           try {
-            const pr = (await publicClient.readContract({ address: vaultAddr, abi: StonkYieldStakingVaultAbi, functionName: "pendingRewards", args: [address] })) as any;
+            const pr = (await publicClient.readContract({ address: vaultAddr, abi: StonkYieldStakingVaultAbi, functionName: "pendingRewards", args: [address!] })) as any;
             pending0 = pr.pending0 as bigint || pr[0] as bigint || 0n;
             pending1 = pr.pending1 as bigint || pr[1] as bigint || 0n;
           } catch { /**/ }
@@ -1334,9 +1346,13 @@ function StakeTab() {
             try { rewardToken0Symbol = (await publicClient.readContract({ address: token0Addr, abi: ERC20MetadataAbi, functionName: "symbol" })) as string; } catch { /**/ }
             try { rewardToken1Symbol = (await publicClient.readContract({ address: token1Addr, abi: ERC20MetadataAbi, functionName: "symbol" })) as string; } catch { /**/ }
           } catch { /**/ }
-          results.push({ launchAddr, vaultAddr, stakeTokenAddr: stakeToken, stakeSymbol, stakeDecimals, staked, unlockTime: userInfo.unlockTime as bigint, pending0, pending1, rewardToken0Symbol, rewardToken1Symbol });
-        } catch { /**/ }
+          return { launchAddr, vaultAddr, stakeTokenAddr: stakeToken, stakeSymbol, stakeDecimals, staked, unlockTime: userInfo.unlockTime as bigint, pending0, pending1, rewardToken0Symbol, rewardToken1Symbol };
+        } catch { return null; }
       }
+
+      const probed = await Promise.all(launchAddrs.map(probeStake));
+      const results = probed.filter((x): x is StakeInfo => x !== null);
+
       setStakes(results);
       if (results.length === 0) setStatus("No active stakes found.");
     } catch (e: any) {
