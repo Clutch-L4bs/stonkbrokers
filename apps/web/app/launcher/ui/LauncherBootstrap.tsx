@@ -164,6 +164,20 @@ function symbolColor(sym: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+/* ── Derived sale metrics ── */
+function salePct(x: { sold: bigint; saleSupply: bigint; remaining: bigint }): number {
+  if (x.saleSupply === 0n) return 0;
+  const effectiveSold = x.sold > 0n ? x.sold : (x.remaining < x.saleSupply ? x.saleSupply - x.remaining : 0n);
+  if (effectiveSold === 0n) return 0;
+  return Number((effectiveSold * 10000n) / x.saleSupply) / 100;
+}
+
+function effectiveSold(x: { sold: bigint; saleSupply: bigint; remaining: bigint }): bigint {
+  if (x.sold > 0n) return x.sold;
+  if (x.saleSupply > 0n && x.remaining < x.saleSupply) return x.saleSupply - x.remaining;
+  return 0n;
+}
+
 /* ── Types ── */
 type LaunchData = {
   creator: Address;
@@ -430,11 +444,13 @@ function FeaturedCarousel({
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {launches.map((x, i) => {
-          const soldPct = x.saleSupply === 0n ? 0 : Number((x.sold * 10000n) / x.saleSupply) / 100;
+          const pct = salePct(x);
+          const sold = effectiveSold(x);
           const soldOut = x.remaining === 0n && x.saleSupply > 0n;
-          const ethRaised = x.priceWeiPerToken > 0n && x.sold > 0n ? (x.sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
+          const ethRaised = x.priceWeiPerToken > 0n && sold > 0n ? (sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
           const grad = symbolColor(x.symbol);
           const trading = isTradingLaunch(x);
+          const showBar = x.saleSupply > 0n && (pct > 0 || !trading);
 
           return (
             <div
@@ -467,7 +483,6 @@ function FeaturedCarousel({
                     <div className="text-white/70 text-[10px] leading-tight truncate max-w-[180px]">{x.name}</div>
                   </div>
                 </div>
-                {/* Direct action (avoid nested <button> inside <button>) */}
                 {trading && x.token && (
                   <Link
                     href={`/exchange?in=ETH&out=${x.token}`}
@@ -492,17 +507,16 @@ function FeaturedCarousel({
 
               {/* Card body */}
               <div className="p-3 space-y-2">
-                {/* Progress bar */}
-                {x.saleSupply > 0n && (
+                {showBar && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px]">
                       <span className="text-lm-terminal-lightgray">Sale</span>
-                      <span className="text-white font-bold">{soldPct.toFixed(1)}%</span>
+                      <span className="text-white font-bold">{pct.toFixed(1)}%</span>
                     </div>
                     <div className="w-full h-1 bg-lm-terminal-darkgray">
                       <div
-                        className={`h-full transition-all ${x.finalized ? "bg-lm-green" : "bg-lm-orange"}`}
-                        style={{ width: `${Math.min(100, soldPct)}%` }}
+                        className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`}
+                        style={{ width: `${Math.min(100, pct)}%` }}
                       />
                     </div>
                   </div>
@@ -568,9 +582,11 @@ function LaunchDetailModal({
 }) {
   const [buyAmt, setBuyAmt] = useState("");
   const trading = isTradingLaunch(x);
-  const soldPct = x.saleSupply === 0n ? 0 : Number((x.sold * 10000n) / x.saleSupply) / 100;
+  const pct = salePct(x);
+  const sold = effectiveSold(x);
   const soldOut = x.remaining === 0n && x.saleSupply > 0n;
-  const ethRaised = x.priceWeiPerToken > 0n && x.sold > 0n ? (x.sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
+  const ethRaised = x.priceWeiPerToken > 0n && sold > 0n ? (sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
+  const showBar = x.saleSupply > 0n && (pct > 0 || !trading);
   const tokenEstimate = (() => {
     try {
       const e = parseEther(buyAmt || "0");
@@ -631,20 +647,20 @@ function LaunchDetailModal({
 
         <div className="p-4 space-y-4">
           {/* Sale Progress */}
-          {x.saleSupply > 0n && (
+          {showBar && (
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs">
                 <span className="text-lm-terminal-lightgray">Sale Progress</span>
-                <span className="text-white font-bold">{soldPct.toFixed(1)}%</span>
+                <span className="text-white font-bold">{pct.toFixed(1)}%</span>
               </div>
               <div className="w-full h-2 bg-lm-terminal-darkgray border border-lm-terminal-gray">
                 <div
-                  className={`h-full transition-all ${x.finalized ? "bg-lm-green" : "bg-lm-orange"}`}
-                  style={{ width: `${Math.min(100, soldPct)}%` }}
+                  className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`}
+                  style={{ width: `${Math.min(100, pct)}%` }}
                 />
               </div>
               <div className="flex justify-between text-[10px] text-lm-terminal-lightgray">
-                <span><span className="text-white lm-mono">{fmtTokens(x.sold)}</span> sold</span>
+                <span><span className="text-white lm-mono">{fmtTokens(sold)}</span> sold</span>
                 <span><span className="text-white lm-mono">{fmtTokens(x.remaining)}</span> remaining</span>
               </div>
             </div>
@@ -661,7 +677,7 @@ function LaunchDetailModal({
               <div className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</div>
             </div>
             <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
-              <div className="text-lm-terminal-lightgray text-[10px]">Total Supply</div>
+              <div className="text-lm-terminal-lightgray text-[10px]">Sale Supply</div>
               <div className="text-white lm-mono font-bold">{fmtTokens(x.saleSupply)}</div>
             </div>
           </div>
@@ -784,45 +800,54 @@ function LaunchesIndex() {
   }, [factory]);
 
   async function enrichOne(prev: LaunchData): Promise<LaunchData> {
-    try {
-      const [sold, saleSupply, priceWeiPerToken, remaining, pool, feeSplitter, stakingVault] = await Promise.all([
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "sold" }) as Promise<bigint>,
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "saleSupply" }) as Promise<bigint>,
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "priceWeiPerToken" }) as Promise<bigint>,
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "remainingForSale" }) as Promise<bigint>,
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "pool" }) as Promise<Address>,
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "feeSplitter" }) as Promise<Address>,
-        publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: "stakingVault" }) as Promise<Address>
-      ]);
+    const out = { ...prev };
 
-      let finalized = prev.finalized;
+    const read = async <T,>(fn: string, fallback: T): Promise<T> => {
       try {
-        const rec = (await publicClient.readContract({
-          address: factory,
-          abi: StonkLauncherFactoryAbi,
-          functionName: "launches",
-          args: [prev.launch]
-        })) as any;
-        finalized = Boolean(rec?.finalized) || finalized;
-      } catch {
-        // Factory mapping read is best-effort; pool != 0 is enough to treat it as live.
-      }
+        return (await publicClient.readContract({ address: prev.launch, abi: StonkLaunchAbi, functionName: fn as any })) as T;
+      } catch { return fallback; }
+    };
 
-      const trading = Boolean(pool && pool !== ZERO);
-      return {
-        ...prev,
-        finalized: finalized || trading,
-        pool,
-        feeSplitter,
-        stakingVault,
-        sold,
-        saleSupply,
-        priceWeiPerToken,
-        remaining
-      };
-    } catch {
-      return prev;
+    const [sold, saleSupply, priceWeiPerToken, remaining, pool, feeSplitter, stakingVault] = await Promise.all([
+      read<bigint>("sold", prev.sold),
+      read<bigint>("saleSupply", prev.saleSupply),
+      read<bigint>("priceWeiPerToken", prev.priceWeiPerToken),
+      read<bigint>("remainingForSale", prev.remaining),
+      read<Address>("pool", prev.pool ?? ZERO),
+      read<Address>("feeSplitter", prev.feeSplitter ?? ZERO),
+      read<Address>("stakingVault", prev.stakingVault ?? ZERO),
+    ]);
+
+    out.sold = sold;
+    out.saleSupply = saleSupply;
+    out.priceWeiPerToken = priceWeiPerToken;
+    out.remaining = remaining;
+    out.pool = pool;
+    out.feeSplitter = feeSplitter;
+    out.stakingVault = stakingVault;
+
+    // Derive sold from saleSupply - remaining when the stored `sold` looks stale.
+    if (out.sold === 0n && out.saleSupply > 0n && out.remaining < out.saleSupply) {
+      out.sold = out.saleSupply - out.remaining;
     }
+
+    let finalized = prev.finalized;
+    try {
+      const rec = (await publicClient.readContract({
+        address: factory,
+        abi: StonkLauncherFactoryAbi,
+        functionName: "launches",
+        args: [prev.launch]
+      })) as any;
+      finalized = Boolean(rec?.finalized) || finalized;
+    } catch {
+      // Factory mapping read is best-effort; pool != 0 is enough to treat it as live.
+    }
+
+    const trading = Boolean(out.pool && out.pool !== ZERO);
+    out.finalized = finalized || trading;
+
+    return out;
   }
 
   async function refresh(opts?: { silent?: boolean; fullReindex?: boolean }) {
@@ -921,14 +946,21 @@ function LaunchesIndex() {
         return bbn > abn ? 1 : bbn < abn ? -1 : 0;
       });
 
-      // Enrich a bounded subset to keep RPC load predictable:
-      // - always enrich anything we just saw in logs
-      // - also enrich a few non-trading launches (so "Trade" appears when they finalize)
+      // Enrich a bounded subset to keep RPC load predictable.
+      // Priority order: new from logs → stale data (sold=0 with saleSupply>0) → non-trading → recent trading
       const enrichSet = new Set<string>();
       for (const b of baseFromLogs) enrichSet.add(b.launch.toLowerCase());
       for (const x of merged) {
-        if (enrichSet.size >= 60) break;
+        if (enrichSet.size >= 80) break;
+        if (x.sold === 0n && x.saleSupply === 0n) enrichSet.add(x.launch.toLowerCase());
+      }
+      for (const x of merged) {
+        if (enrichSet.size >= 80) break;
         if (!isTradingLaunch(x)) enrichSet.add(x.launch.toLowerCase());
+      }
+      for (const x of merged) {
+        if (enrichSet.size >= 80) break;
+        enrichSet.add(x.launch.toLowerCase());
       }
       const enrichTargets = merged.filter((x) => enrichSet.has(x.launch.toLowerCase()));
       const enrichedTargets = await Promise.all(enrichTargets.map(enrichOne));
@@ -1103,9 +1135,11 @@ function LaunchesIndex() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filtered.map((x) => {
             const key = x.launch;
-            const soldPct = x.saleSupply === 0n ? 0 : Number((x.sold * 10000n) / x.saleSupply) / 100;
+            const pct = salePct(x);
+            const xSold = effectiveSold(x);
             const soldOut = x.remaining === 0n && x.saleSupply > 0n;
-            const ethRaised = x.priceWeiPerToken > 0n && x.sold > 0n ? (x.sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
+            const ethRaised = x.priceWeiPerToken > 0n && xSold > 0n ? (xSold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
+            const showBar = x.saleSupply > 0n && (pct > 0 || !isTradingLaunch(x));
             const tokenEstimate = (buyAmounts[key] && x.priceWeiPerToken > 0n) ? (() => {
               try { const e = parseEther(buyAmounts[key] || "0"); return e > 0n ? fmtTokens((e * 10n ** 18n) / x.priceWeiPerToken) : ""; } catch { return ""; }
             })() : "";
@@ -1148,14 +1182,14 @@ function LaunchesIndex() {
                 </div>
 
                 {/* Sale Progress */}
-                {x.saleSupply > 0n && (
+                {showBar && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px]">
                       <span className="text-lm-terminal-lightgray">Sale</span>
-                      <span className="text-white font-bold">{soldPct.toFixed(1)}%</span>
+                      <span className="text-white font-bold">{pct.toFixed(1)}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-lm-terminal-darkgray border border-lm-terminal-gray">
-                      <div className={`h-full transition-all ${x.finalized ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, soldPct)}%` }} />
+                      <div className={`h-full transition-all ${isTradingLaunch(x) ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, pct)}%` }} />
                     </div>
                   </div>
                 )}
