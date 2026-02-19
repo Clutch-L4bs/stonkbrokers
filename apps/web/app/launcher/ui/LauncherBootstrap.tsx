@@ -16,7 +16,8 @@ import {
   StonkLauncherFactoryAbi,
   StonkLpFeeSplitterAbi,
   StonkYieldStakingVaultAbi,
-  ERC20MetadataAbi
+  ERC20MetadataAbi,
+  UniswapV3PoolAbi
 } from "../../lib/abis";
 import { IntentTerminal, IntentAction } from "../../components/IntentTerminal";
 
@@ -142,10 +143,28 @@ function fmtEth(wei: bigint): string {
 function fmtPrice(weiPerToken: bigint): string {
   if (weiPerToken === 0n) return "—";
   const num = Number(formatEther(weiPerToken));
+  return fmtEthPrice(num);
+}
+
+function fmtEthPrice(num: number): string {
+  if (!num || !Number.isFinite(num) || num <= 0) return "—";
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}K ETH`;
   if (num >= 1) return `${num.toFixed(4)} ETH`;
   if (num >= 0.001) return `${num.toFixed(6)} ETH`;
   if (num >= 0.000001) return `${(num * 1_000_000).toFixed(2)} µETH`;
+  if (num >= 1e-12) return `${(num * 1e9).toFixed(2)} nETH`;
   return `${num.toExponential(2)} ETH`;
+}
+
+function displayPrice(x: { marketPriceEth?: number; priceWeiPerToken: bigint; finalized: boolean; pool?: Address }): { label: string; value: string } {
+  const trading = Boolean(x.finalized || (x.pool && x.pool !== ZERO));
+  if (trading && x.marketPriceEth && x.marketPriceEth > 0) {
+    return { label: "Market", value: fmtEthPrice(x.marketPriceEth) };
+  }
+  if (x.priceWeiPerToken > 0n) {
+    return { label: trading ? "Sale" : "Price", value: fmtPrice(x.priceWeiPerToken) };
+  }
+  return { label: "Price", value: "—" };
 }
 
 function symbolColor(sym: string): string {
@@ -196,6 +215,7 @@ type LaunchData = {
   remaining: bigint;
   blockNumber?: bigint;
   blockTimestamp?: number;
+  marketPriceEth?: number;
 };
 
 type LaunchCacheEntryV1 = {
@@ -217,6 +237,7 @@ type LaunchCacheEntryV1 = {
   blockNumber?: string;
   blockTimestamp?: number;
   lastUpdatedAt?: number;
+  marketPriceEth?: number;
 };
 
 function cacheKeyForLaunches(factory: Address): string {
@@ -288,7 +309,8 @@ function loadLaunchCache(factory: Address): LaunchData[] {
         priceWeiPerToken: safeParseBigInt(x.priceWeiPerToken) ?? 0n,
         remaining: safeParseBigInt(x.remaining) ?? 0n,
         blockNumber: safeParseBigInt(x.blockNumber),
-        blockTimestamp: typeof x.blockTimestamp === "number" ? x.blockTimestamp : undefined
+        blockTimestamp: typeof x.blockTimestamp === "number" ? x.blockTimestamp : undefined,
+        marketPriceEth: typeof x.marketPriceEth === "number" && x.marketPriceEth > 0 ? x.marketPriceEth : undefined
       });
     }
 
@@ -328,7 +350,8 @@ function saveLaunchCache(factory: Address, launches: LaunchData[]) {
       remaining: x.remaining.toString(),
       blockNumber: x.blockNumber?.toString(),
       blockTimestamp: x.blockTimestamp,
-      lastUpdatedAt: Date.now()
+      lastUpdatedAt: Date.now(),
+      marketPriceEth: x.marketPriceEth
     }));
     window.localStorage.setItem(cacheKeyForLaunches(factory), JSON.stringify(entries));
   } catch {
@@ -523,16 +546,18 @@ function FeaturedCarousel({
                 )}
 
                 {/* Stats row */}
+                {(() => { const dp = displayPrice(x); return (
                 <div className="flex items-center justify-between text-[10px]">
                   <div>
-                    <span className="text-lm-terminal-lightgray">Price </span>
-                    <span className="text-white lm-mono font-bold">{fmtPrice(x.priceWeiPerToken)}</span>
+                    <span className="text-lm-terminal-lightgray">{dp.label} </span>
+                    <span className="text-white lm-mono font-bold">{dp.value}</span>
                   </div>
                   <div>
                     <span className="text-lm-terminal-lightgray">Raised </span>
                     <span className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</span>
                   </div>
                 </div>
+                ); })()}
 
                 {/* Footer */}
                 <div className="flex items-center justify-between text-[10px] pt-1 border-t border-lm-terminal-gray">
@@ -673,10 +698,11 @@ function LaunchDetailModal({
           )}
 
           {/* Stats */}
+          {(() => { const dp = displayPrice(x); return (
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
-              <div className="text-lm-terminal-lightgray text-[10px]">Price per Token</div>
-              <div className="text-white lm-mono font-bold">{fmtPrice(x.priceWeiPerToken)}</div>
+              <div className="text-lm-terminal-lightgray text-[10px]">{dp.label === "Market" ? "Market Price" : "Sale Price"}</div>
+              <div className="text-white lm-mono font-bold">{dp.value}</div>
             </div>
             <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
               <div className="text-lm-terminal-lightgray text-[10px]">Total Raised</div>
@@ -687,6 +713,7 @@ function LaunchDetailModal({
               <div className="text-white lm-mono font-bold">{fmtTokens(x.saleSupply)}</div>
             </div>
           </div>
+          ); })()}
 
           {/* Addresses */}
           <div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -852,6 +879,20 @@ function LaunchesIndex() {
 
     const trading = Boolean(out.pool && out.pool !== ZERO);
     out.finalized = finalized || trading;
+
+    if (trading && out.pool && out.pool !== ZERO) {
+      try {
+        const poolToken0Abi = [{ type: "function", name: "token0", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] }] as const;
+        const [slot0Result, poolToken0] = await Promise.all([
+          publicClient.readContract({ address: out.pool, abi: UniswapV3PoolAbi, functionName: "slot0" }),
+          publicClient.readContract({ address: out.pool, abi: poolToken0Abi, functionName: "token0" })
+        ]);
+        const tick = Number((slot0Result as any).tick ?? (slot0Result as any)[1]);
+        const rawPrice = Math.pow(1.0001, tick);
+        const isToken0 = (poolToken0 as Address).toLowerCase() === out.token.toLowerCase();
+        out.marketPriceEth = isToken0 ? rawPrice : 1 / rawPrice;
+      } catch { /* pool price best-effort */ }
+    }
 
     return out;
   }
@@ -1201,16 +1242,18 @@ function LaunchesIndex() {
                 )}
 
                 {/* Stats */}
+                {(() => { const dp = displayPrice(x); return (
                 <div className="flex items-center justify-between text-[10px]">
                   <div>
-                    <span className="text-lm-terminal-lightgray">Price </span>
-                    <span className="text-white lm-mono font-bold">{fmtPrice(x.priceWeiPerToken)}</span>
+                    <span className="text-lm-terminal-lightgray">{dp.label} </span>
+                    <span className="text-white lm-mono font-bold">{dp.value}</span>
                   </div>
                   <div>
                     <span className="text-lm-terminal-lightgray">Raised </span>
                     <span className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</span>
                   </div>
                 </div>
+                ); })()}
 
                 {/* Quick Buy */}
                 {!isTradingLaunch(x) && x.remaining > 0n && (
