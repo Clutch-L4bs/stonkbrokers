@@ -1094,21 +1094,66 @@ function LaunchesIndex() {
     }
   }
 
+  /* Deduplicate launches sharing the same token address OR the same symbol
+     (case-insensitive) — keep the one with the most activity. */
+  const deduped = useMemo(() => {
+    function score(l: LaunchData): number {
+      let s = 0;
+      if (isTradingLaunch(l)) s += 1000;
+      if (l.sold > 0n || (l.saleSupply > 0n && l.remaining < l.saleSupply)) s += 100;
+      s += (l.blockTimestamp ?? 0) / 1e6;
+      return s;
+    }
+
+    const byToken = new Map<string, LaunchData>();
+    const bySymbol = new Map<string, LaunchData>();
+    for (const l of launches) {
+      const tk = l.token.toLowerCase();
+      const sym = l.symbol.toLowerCase();
+      const existToken = byToken.get(tk);
+      const existSymbol = bySymbol.get(sym);
+      const existing = existToken || existSymbol;
+      if (!existing) {
+        byToken.set(tk, l);
+        bySymbol.set(sym, l);
+        continue;
+      }
+      if (score(l) > score(existing)) {
+        if (existToken) byToken.set(tk, l);
+        if (existSymbol) bySymbol.set(sym, l);
+        if (!existToken) byToken.set(tk, l);
+        if (!existSymbol) bySymbol.set(sym, l);
+      }
+    }
+    const seen = new Set<string>();
+    const result: LaunchData[] = [];
+    for (const l of bySymbol.values()) {
+      const k = l.launch.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      result.push(l);
+    }
+    result.sort((a, b) => (b.blockTimestamp ?? 0) - (a.blockTimestamp ?? 0));
+    return result;
+  }, [launches]);
+
   const filtered = useMemo(() => {
-    if (filter === "open") return launches.filter((l) => !isTradingLaunch(l));
-    if (filter === "finalized") return launches.filter((l) => isTradingLaunch(l));
-    return launches;
-  }, [launches, filter]);
+    if (filter === "open") return deduped.filter((l) => !isTradingLaunch(l));
+    if (filter === "finalized") return deduped.filter((l) => isTradingLaunch(l));
+    return deduped;
+  }, [deduped, filter]);
 
   return (
     <div className="space-y-4">
-      {/* ── Featured Carousel ── */}
-      {launches.length > 0 && (
-        <FeaturedCarousel
-          launches={launches}
-          onSelect={setSelectedLaunch}
-        />
-      )}
+      {/* ── Featured Carousel — show top trading tokens and active sales ── */}
+      {(() => {
+        const featured = deduped
+          .filter((l) => isTradingLaunch(l) || (l.saleSupply > 0n && l.remaining > 0n))
+          .slice(0, 8);
+        return featured.length > 0 ? (
+          <FeaturedCarousel launches={featured} onSelect={setSelectedLaunch} />
+        ) : null;
+      })()}
 
       {/* ── Detail Modal ── */}
       {selectedLaunch && (
@@ -1126,10 +1171,10 @@ function LaunchesIndex() {
             <button key={f} type="button" onClick={() => setFilter(f)}
               className={`text-[10px] px-2 py-1 border transition-colors capitalize ${filter === f ? "border-lm-orange text-lm-orange bg-lm-orange/5" : "border-lm-terminal-gray text-lm-gray hover:border-lm-gray"}`}>
               {f === "all"
-                ? `All (${launches.length})`
+                ? `All (${deduped.length})`
                 : f === "open"
-                  ? `Open (${launches.filter((l) => !isTradingLaunch(l)).length})`
-                  : `Live (${launches.filter((l) => isTradingLaunch(l)).length})`}
+                  ? `Open (${deduped.filter((l) => !isTradingLaunch(l)).length})`
+                  : `Live (${deduped.filter((l) => isTradingLaunch(l)).length})`}
             </button>
           ))}
         </div>
@@ -1151,7 +1196,7 @@ function LaunchesIndex() {
           >
             {loading ? "..." : "Refresh"}
           </button>
-          {launches.length > 0 && (
+          {deduped.length > 0 && (
             <button
               type="button"
               onClick={() => {
@@ -1179,14 +1224,15 @@ function LaunchesIndex() {
       {filtered.length === 0 && !loading ? (
         <div className="text-lm-gray text-sm text-center py-8">No launches found. Be the first to create one!</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map((x) => {
             const key = x.launch;
             const pct = salePct(x);
             const xSold = effectiveSold(x);
             const soldOut = x.remaining === 0n && x.saleSupply > 0n;
             const ethRaised = x.priceWeiPerToken > 0n && xSold > 0n ? (xSold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
-            const showBar = x.saleSupply > 0n && (pct > 0 || !isTradingLaunch(x));
+            const trading = isTradingLaunch(x);
+            const showBar = x.saleSupply > 0n && (pct > 0 || !trading);
             const tokenEstimate = (buyAmounts[key] && x.priceWeiPerToken > 0n) ? (() => {
               try { const e = parseEther(buyAmounts[key] || "0"); return e > 0n ? fmtTokens((e * 10n ** 18n) / x.priceWeiPerToken) : ""; } catch { return ""; }
             })() : "";
@@ -1197,111 +1243,117 @@ function LaunchesIndex() {
             const feeStatus = buyStatus[feeKey];
             const feeType = buyType[feeKey] || "info";
             const feeColor = feeType === "success" ? "text-lm-green" : feeType === "error" ? "text-lm-red" : "text-lm-gray";
+            const dp = displayPrice(x);
+            const grad = symbolColor(x.symbol);
 
             return (
-              <div key={key} className="bg-lm-black border border-lm-terminal-gray hover:border-lm-terminal-lightgray transition-colors p-3 space-y-2">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-2">
-                  <button type="button" onClick={() => setSelectedLaunch(x)} className="flex items-center gap-2 min-w-0 text-left group">
-                    {x.imageURI && x.imageURI.startsWith("http") ? (
-                      <img src={x.imageURI} alt={x.symbol} className="w-8 h-8 border border-lm-terminal-gray object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                    ) : (
-                      <div className={`w-8 h-8 bg-gradient-to-br ${symbolColor(x.symbol)} flex items-center justify-center text-white font-bold text-[10px] flex-shrink-0`}>
-                        {x.symbol.slice(0, 2)}
-                      </div>
-                    )}
+              <div key={key} className={`bg-lm-black border transition-all group cursor-pointer ${
+                trading ? "border-lm-terminal-gray hover:border-lm-green/50" : "border-lm-terminal-gray hover:border-lm-orange/50"
+              }`}>
+                {/* Card banner */}
+                <div className={`h-16 bg-gradient-to-br ${grad} relative overflow-hidden`} onClick={() => setSelectedLaunch(x)}>
+                  {x.imageURI && x.imageURI.startsWith("http") && (
+                    <img src={x.imageURI} alt={x.symbol} className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <div className="absolute bottom-2 left-2.5 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-xs backdrop-blur-sm">
+                      {x.symbol.slice(0, 2)}
+                    </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-white font-bold text-sm group-hover:text-lm-orange transition-colors">${x.symbol}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 border ${isTradingLaunch(x) ? "border-lm-green text-lm-green" : soldOut ? "border-lm-gray text-lm-gray" : "border-lm-orange text-lm-orange"}`}>
-                          {isTradingLaunch(x) ? "TRADING" : soldOut ? "SOLD OUT" : "SALE OPEN"}
-                        </span>
-                      </div>
-                      <div className="text-lm-terminal-lightgray text-[10px] truncate">{x.name}</div>
+                      <div className="text-white font-bold text-sm leading-tight truncate">${x.symbol}</div>
+                      <div className="text-white/60 text-[9px] leading-tight truncate max-w-[140px]">{x.name}</div>
                     </div>
-                  </button>
-                  <div className="text-right flex-shrink-0">
-                    {x.blockTimestamp && <div className="text-lm-terminal-lightgray text-[10px]">{timeAgo(x.blockTimestamp)}</div>}
-                    <a href={explorerAddr(x.creator)} target="_blank" rel="noreferrer" className="text-lm-terminal-lightgray hover:text-lm-orange text-[10px] lm-mono transition-colors">
-                      by {short(x.creator)}
-                    </a>
+                  </div>
+                  <div className="absolute top-1.5 right-1.5">
+                    <span className={`text-[8px] px-1.5 py-0.5 font-bold ${
+                      trading
+                        ? "bg-lm-green/20 text-lm-green border border-lm-green/40"
+                        : soldOut
+                          ? "bg-white/10 text-white/60 border border-white/20"
+                          : "bg-lm-orange/20 text-lm-orange border border-lm-orange/40"
+                    }`}>
+                      {trading ? "TRADING" : soldOut ? "SOLD OUT" : "SALE"}
+                    </span>
                   </div>
                 </div>
 
-                {/* Sale Progress */}
-                {showBar && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-lm-terminal-lightgray">Sale</span>
-                      <span className="text-white font-bold">{pct.toFixed(1)}%</span>
+                {/* Card body */}
+                <div className="p-2.5 space-y-2">
+                  {/* Price + Raised row */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5">
+                      <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">{dp.label}</div>
+                      <div className={`lm-mono text-[11px] font-bold mt-0.5 ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.value}</div>
                     </div>
-                    <div className="w-full h-1.5 bg-lm-terminal-darkgray border border-lm-terminal-gray">
-                      <div className={`h-full transition-all ${isTradingLaunch(x) ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                    <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5">
+                      <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Raised</div>
+                      <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{fmtEth(ethRaised)} ETH</div>
                     </div>
                   </div>
-                )}
 
-                {/* Stats */}
-                {(() => { const dp = displayPrice(x); return (
-                <div className="flex items-center justify-between text-[10px]">
-                  <div>
-                    <span className="text-lm-terminal-lightgray">{dp.label} </span>
-                    <span className="text-white lm-mono font-bold">{dp.value}</span>
-                  </div>
-                  <div>
-                    <span className="text-lm-terminal-lightgray">Raised </span>
-                    <span className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</span>
-                  </div>
-                </div>
-                ); })()}
-
-                {/* Quick Buy */}
-                {!isTradingLaunch(x) && x.remaining > 0n && (
-                  <div className="space-y-1.5">
-                    <div className="flex gap-1.5 items-end">
-                      <div className="flex-1">
-                        <Input
-                          value={buyAmounts[key] || ""}
-                          onValueChange={(v) => setBuyAmounts((p) => ({ ...p, [key]: v }))}
-                          placeholder="ETH to spend"
-                        />
+                  {/* Sale progress bar (compact) */}
+                  {showBar && (
+                    <div>
+                      <div className="flex justify-between text-[9px] mb-0.5">
+                        <span className="text-lm-terminal-lightgray">Sale Progress</span>
+                        <span className="text-white font-bold">{pct.toFixed(1)}%</span>
                       </div>
-                      <button type="button" onClick={() => quickBuy(x)} disabled={!address || buyType[key] === "info"}
-                        className="text-xs px-3 py-1.5 bg-lm-orange text-black font-bold hover:bg-lm-orange/80 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap">
-                        {buyType[key] === "info" ? "..." : "Buy"}
-                      </button>
-                    </div>
-                    {tokenEstimate && (
-                      <div className="text-[10px] text-lm-terminal-lightgray">
-                        ≈ <span className="text-white font-bold">{tokenEstimate} ${x.symbol}</span>
+                      <div className="w-full h-1 bg-lm-terminal-darkgray">
+                        <div className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
-                    )}
-                    {bStatus && <div className={`text-[10px] ${bColor}`}>{bStatus}</div>}
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                {/* Finalized actions */}
-                {isTradingLaunch(x) && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {x.pool && x.pool !== ZERO && (
-                      <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-[10px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">Trade</Link>
-                    )}
-                    {x.stakingVault && x.stakingVault !== ZERO && (
-                      <Link href={`/launcher/${x.launch}`} className="text-[10px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors">Stake</Link>
-                    )}
-                    {x.feeSplitter && x.feeSplitter !== ZERO && (
-                      <button type="button" onClick={() => collectFees(x)} disabled={buyType[x.launch + "-fee"] === "info"} className="text-[10px] px-2 py-1 border border-lm-terminal-gray text-lm-terminal-lightgray hover:border-lm-orange hover:text-lm-orange transition-colors disabled:opacity-40 disabled:pointer-events-none">{buyType[x.launch + "-fee"] === "info" ? "..." : "Fees"}</button>
-                    )}
-                    {feeStatus && <span className={`text-[10px] ${feeColor}`}>{feeStatus}</span>}
-                  </div>
-                )}
+                  {/* Quick Buy */}
+                  {!trading && x.remaining > 0n && (
+                    <div className="space-y-1">
+                      <div className="flex gap-1 items-end">
+                        <div className="flex-1">
+                          <Input
+                            value={buyAmounts[key] || ""}
+                            onValueChange={(v) => setBuyAmounts((p) => ({ ...p, [key]: v }))}
+                            placeholder="ETH"
+                          />
+                        </div>
+                        <button type="button" onClick={() => quickBuy(x)} disabled={!address || buyType[key] === "info"}
+                          className="text-[10px] px-2.5 py-1.5 bg-lm-orange text-black font-bold hover:bg-lm-orange/80 disabled:opacity-40 disabled:pointer-events-none transition-colors whitespace-nowrap">
+                          {buyType[key] === "info" ? "..." : "Buy"}
+                        </button>
+                      </div>
+                      {tokenEstimate && <div className="text-[9px] text-lm-terminal-lightgray">≈ <span className="text-white font-bold">{tokenEstimate} ${x.symbol}</span></div>}
+                      {bStatus && <div className={`text-[9px] ${bColor}`}>{bStatus}</div>}
+                    </div>
+                  )}
 
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-1 border-t border-lm-terminal-gray">
-                  <a href={explorerAddr(x.launch)} target="_blank" rel="noreferrer" className="text-[10px] text-lm-terminal-lightgray hover:text-lm-orange transition-colors lm-mono">{short(x.launch)}</a>
-                  <button type="button" onClick={() => setSelectedLaunch(x)} className="text-[10px] px-2 py-1 bg-lm-orange text-black font-bold hover:bg-lm-orange/80 transition-colors">
-                    Details
-                  </button>
+                  {/* Actions for trading tokens */}
+                  {trading && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {x.pool && x.pool !== ZERO && (
+                        <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-[9px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/10 transition-colors font-bold">Trade</Link>
+                      )}
+                      {x.stakingVault && x.stakingVault !== ZERO && (
+                        <Link href={`/launcher/${x.launch}`} className="text-[9px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/10 transition-colors font-bold">Stake</Link>
+                      )}
+                      {x.feeSplitter && x.feeSplitter !== ZERO && (
+                        <button type="button" onClick={() => collectFees(x)} disabled={buyType[x.launch + "-fee"] === "info"} className="text-[9px] px-2 py-1 border border-lm-terminal-gray text-lm-terminal-lightgray hover:border-lm-orange hover:text-lm-orange transition-colors disabled:opacity-40 disabled:pointer-events-none">{buyType[x.launch + "-fee"] === "info" ? "..." : "Fees"}</button>
+                      )}
+                      {feeStatus && <span className={`text-[9px] ${feeColor}`}>{feeStatus}</span>}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="flex items-center justify-between pt-1.5 border-t border-lm-terminal-gray/50">
+                    <div className="flex items-center gap-2 text-[9px] text-lm-terminal-lightgray">
+                      {x.blockTimestamp && <span>{timeAgo(x.blockTimestamp)}</span>}
+                      <a href={explorerAddr(x.creator)} target="_blank" rel="noreferrer" className="hover:text-lm-orange transition-colors lm-mono">
+                        {short(x.creator)}
+                      </a>
+                    </div>
+                    <button type="button" onClick={() => setSelectedLaunch(x)} className="text-[9px] text-lm-orange hover:underline font-bold">
+                      Details →
+                    </button>
+                  </div>
                 </div>
               </div>
             );
