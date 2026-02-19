@@ -92,7 +92,8 @@ function PositionsTab() {
       })) as bigint;
 
       const cap = bal > 50n ? 50 : Number(bal);
-      const list: LpPos[] = [];
+      if (cap === 0) { setPositions([]); setStatus(""); setBusy(false); return; }
+
       const metaCache: Record<string, { sym: string; dec: number }> = {};
 
       async function getMeta(token: Address) {
@@ -108,54 +109,81 @@ function PositionsTab() {
 
       const poolPriceCache: Record<string, number> = {};
 
-      for (let i = 0; i < cap; i++) {
-        const tokenId = (await publicClient.readContract({
-          address: npm, abi: NonfungiblePositionManagerAbi, functionName: "tokenOfOwnerByIndex",
-          args: [address, BigInt(i)]
-        })) as bigint;
-        const pos = (await publicClient.readContract({
-          address: npm, abi: NonfungiblePositionManagerAbi, functionName: "positions", args: [tokenId]
-        })) as any;
-        const t0Addr = pos.token0 as Address;
-        const t1Addr = pos.token1 as Address;
-        const m0 = await getMeta(t0Addr);
-        const m1 = await getMeta(t1Addr);
-        const positionFee = Number(pos.fee);
+      const tokenIdResults = await Promise.all(
+        Array.from({ length: cap }, (_, i) =>
+          publicClient.readContract({
+            address: npm, abi: NonfungiblePositionManagerAbi, functionName: "tokenOfOwnerByIndex",
+            args: [address, BigInt(i)]
+          }).catch(() => null)
+        )
+      );
+      const tokenIds = tokenIdResults.filter((id): id is bigint => id !== null);
 
-        const priceLower = tickToPrice(Number(pos.tickLower), m0.dec, m1.dec);
-        const priceUpper = tickToPrice(Number(pos.tickUpper), m0.dec, m1.dec);
+      if (tokenIds.length === 0) { setPositions([]); setStatus(""); setBusy(false); return; }
 
-        let currentPrice = 0;
-        const poolKey = `${t0Addr.toLowerCase()}-${t1Addr.toLowerCase()}-${positionFee}`;
-        if (poolPriceCache[poolKey] !== undefined) {
-          currentPrice = poolPriceCache[poolKey];
-        } else if (config.uniFactory) {
-          try {
-            const pool = (await publicClient.readContract({
-              address: config.uniFactory, abi: UniswapV3FactoryAbi, functionName: "getPool",
-              args: [t0Addr, t1Addr, positionFee]
-            })) as Address;
-            if (pool && pool !== "0x0000000000000000000000000000000000000000") {
-              const slot0 = (await publicClient.readContract({
-                address: pool, abi: UniswapV3PoolAbi, functionName: "slot0"
-              })) as unknown as readonly [bigint, number, number, number, number, number, boolean];
-              currentPrice = tickToPrice(slot0[1], m0.dec, m1.dec);
-            }
-          } catch { /* skip */ }
-          poolPriceCache[poolKey] = currentPrice;
-        }
+      const posResults = await Promise.all(
+        tokenIds.map((tokenId) =>
+          publicClient.readContract({
+            address: npm, abi: NonfungiblePositionManagerAbi, functionName: "positions", args: [tokenId]
+          }).catch(() => null)
+        )
+      );
 
-        const inRange = currentPrice >= priceLower && currentPrice <= priceUpper;
+      const list: LpPos[] = [];
 
-        list.push({
-          tokenId, token0: t0Addr, token1: t1Addr, fee: positionFee,
-          tickLower: Number(pos.tickLower), tickUpper: Number(pos.tickUpper),
-          liquidity: pos.liquidity as bigint, sym0: m0.sym, sym1: m1.sym,
-          dec0: m0.dec, dec1: m1.dec,
-          tokensOwed0: pos.tokensOwed0 as bigint, tokensOwed1: pos.tokensOwed1 as bigint,
-          priceLower, priceUpper, currentPrice, inRange
-        });
+      for (let idx = 0; idx < tokenIds.length; idx++) {
+        const tokenId = tokenIds[idx];
+        const pos = posResults[idx] as any;
+        if (!pos) continue;
+
+        try {
+          const t0Addr = (pos.token0 ?? pos[2]) as Address;
+          const t1Addr = (pos.token1 ?? pos[3]) as Address;
+          if (!t0Addr || !t1Addr) continue;
+
+          const [m0, m1] = await Promise.all([getMeta(t0Addr), getMeta(t1Addr)]);
+          const positionFee = Number(pos.fee ?? pos[4]);
+          const tickLower = Number(pos.tickLower ?? pos[5]);
+          const tickUpper = Number(pos.tickUpper ?? pos[6]);
+          const liquidity = (pos.liquidity ?? pos[7]) as bigint;
+          const tokensOwed0 = (pos.tokensOwed0 ?? pos[10]) as bigint;
+          const tokensOwed1 = (pos.tokensOwed1 ?? pos[11]) as bigint;
+
+          const priceLower = tickToPrice(tickLower, m0.dec, m1.dec);
+          const priceUpper = tickToPrice(tickUpper, m0.dec, m1.dec);
+
+          let currentPrice = 0;
+          const poolKey = `${t0Addr.toLowerCase()}-${t1Addr.toLowerCase()}-${positionFee}`;
+          if (poolPriceCache[poolKey] !== undefined) {
+            currentPrice = poolPriceCache[poolKey];
+          } else if (config.uniFactory) {
+            try {
+              const pool = (await publicClient.readContract({
+                address: config.uniFactory, abi: UniswapV3FactoryAbi, functionName: "getPool",
+                args: [t0Addr, t1Addr, positionFee]
+              })) as Address;
+              if (pool && pool !== "0x0000000000000000000000000000000000000000") {
+                const slot0 = (await publicClient.readContract({
+                  address: pool, abi: UniswapV3PoolAbi, functionName: "slot0"
+                })) as any;
+                const tick = Number(slot0.tick ?? slot0[1]);
+                currentPrice = tickToPrice(tick, m0.dec, m1.dec);
+              }
+            } catch { /* skip */ }
+            poolPriceCache[poolKey] = currentPrice;
+          }
+
+          const inRange = currentPrice >= priceLower && currentPrice <= priceUpper;
+
+          list.push({
+            tokenId, token0: t0Addr, token1: t1Addr, fee: positionFee,
+            tickLower, tickUpper, liquidity, sym0: m0.sym, sym1: m1.sym,
+            dec0: m0.dec, dec1: m1.dec, tokensOwed0, tokensOwed1,
+            priceLower, priceUpper, currentPrice, inRange
+          });
+        } catch { /* skip failed position */ }
       }
+
       setPositions(list);
       setStatus("");
     } catch (e: any) {

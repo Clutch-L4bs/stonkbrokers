@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Address, formatEther, formatUnits, parseAbiItem } from "viem";
+import { Address, formatUnits } from "viem";
 import { Panel } from "../../components/Terminal";
 import { TerminalTabs } from "../../components/Tabs";
 import { Button } from "../../components/Button";
@@ -116,31 +116,45 @@ function TradeTab() {
     if (!vault) { setOffers([]); return; }
     setLoading(true); setStatus("");
     try {
-      const latest = await publicClient.getBlockNumber();
-      const fromBlock = latest > 50_000n ? latest - 50_000n : 0n;
-      const logs = await publicClient.getLogs({
-        address: vault,
-        event: parseAbiItem("event OfferCreated(uint256 indexed offerId,address indexed writer,address indexed underlying,uint256 underlyingAmount)"),
-        fromBlock, toBlock: latest
-      });
-      const ids = [...new Set(logs.map((l) => l.args.offerId as bigint))].reverse().slice(0, 50);
+      const total = Number(
+        await publicClient.readContract({ address: vault, abi: StonkCoveredCallVaultAbi, functionName: "nextOfferId" })
+      );
+
+      const batchSize = 10;
       const list: OfferData[] = [];
-      for (const id of ids) {
-        try {
-          const offer = (await publicClient.readContract({ address: vault, abi: StonkCoveredCallVaultAbi, functionName: "offers", args: [id] })) as any;
-          if (!offer.active) continue;
-          const u = await getMeta(offer.underlying as Address);
-          const q = await getMeta(offer.quote as Address);
-          list.push({
-            id, writer: offer.writer as Address, underlying: offer.underlying as Address,
-            quote: offer.quote as Address, underlyingAmount: offer.underlyingAmount as bigint,
-            strikeQuoteAmount: offer.strikeQuoteAmount as bigint, premiumQuoteAmount: offer.premiumQuoteAmount as bigint,
-            expiry: Number(offer.expiry), active: true, strikeTick: Number(offer.strikeTick),
-            uSym: u.sym, qSym: q.sym, uDec: u.dec, qDec: q.dec
-          });
-        } catch { /**/ }
+
+      for (let start = 0; start < total; start += batchSize) {
+        const end = Math.min(start + batchSize, total);
+        const batch = await Promise.all(
+          Array.from({ length: end - start }, (_, i) =>
+            publicClient
+              .readContract({ address: vault, abi: StonkCoveredCallVaultAbi, functionName: "offers", args: [BigInt(start + i)] })
+              .catch(() => null)
+          )
+        );
+        for (let i = 0; i < batch.length; i++) {
+          const offer = batch[i] as any;
+          if (!offer || !offer.active) continue;
+          const now = Math.floor(Date.now() / 1000);
+          if (Number(offer.expiry) < now) continue;
+          try {
+            const [u, q] = await Promise.all([
+              getMeta(offer.underlying as Address),
+              getMeta(offer.quote as Address)
+            ]);
+            list.push({
+              id: BigInt(start + i), writer: offer.writer as Address, underlying: offer.underlying as Address,
+              quote: offer.quote as Address, underlyingAmount: offer.underlyingAmount as bigint,
+              strikeQuoteAmount: offer.strikeQuoteAmount as bigint, premiumQuoteAmount: offer.premiumQuoteAmount as bigint,
+              expiry: Number(offer.expiry), active: true, strikeTick: Number(offer.strikeTick),
+              uSym: u.sym, qSym: q.sym, uDec: u.dec, qDec: q.dec
+            });
+          } catch { /**/ }
+        }
       }
-      setOffers(list);
+
+      list.sort((a, b) => Number(b.id - a.id));
+      setOffers(list.slice(0, 50));
       if (list.length === 0) setStatus("No active offers available.");
     } catch (e: any) { setStatus(String(e?.shortMessage || e?.message || e)); }
     finally { setLoading(false); }
@@ -447,31 +461,44 @@ function EarnTab() {
     if (!address || !vault) { setOffers([]); return; }
     setLoading(true); setStatus("");
     try {
-      const latest = await publicClient.getBlockNumber();
-      const fromBlock = latest > 50_000n ? latest - 50_000n : 0n;
-      const logs = await publicClient.getLogs({
-        address: vault,
-        event: parseAbiItem("event OfferCreated(uint256 indexed offerId,address indexed writer,address indexed underlying,uint256 underlyingAmount)"),
-        args: { writer: address },
-        fromBlock, toBlock: latest
-      });
-      const ids = [...new Set(logs.map((l) => l.args.offerId as bigint))].reverse().slice(0, 30);
+      const total = Number(
+        await publicClient.readContract({ address: vault, abi: StonkCoveredCallVaultAbi, functionName: "nextOfferId" })
+      );
+
+      const batchSize = 10;
       const list: OfferData[] = [];
-      for (const id of ids) {
-        try {
-          const offer = (await publicClient.readContract({ address: vault, abi: StonkCoveredCallVaultAbi, functionName: "offers", args: [id] })) as any;
-          const u = await getMeta(offer.underlying as Address);
-          const q = await getMeta(offer.quote as Address);
-          list.push({
-            id, writer: offer.writer as Address, underlying: offer.underlying as Address,
-            quote: offer.quote as Address, underlyingAmount: offer.underlyingAmount as bigint,
-            strikeQuoteAmount: offer.strikeQuoteAmount as bigint, premiumQuoteAmount: offer.premiumQuoteAmount as bigint,
-            expiry: Number(offer.expiry), active: Boolean(offer.active), strikeTick: Number(offer.strikeTick),
-            uSym: u.sym, qSym: q.sym, uDec: u.dec, qDec: q.dec
-          });
-        } catch { /**/ }
+
+      for (let start = 0; start < total; start += batchSize) {
+        const end = Math.min(start + batchSize, total);
+        const batch = await Promise.all(
+          Array.from({ length: end - start }, (_, i) =>
+            publicClient
+              .readContract({ address: vault, abi: StonkCoveredCallVaultAbi, functionName: "offers", args: [BigInt(start + i)] })
+              .catch(() => null)
+          )
+        );
+        for (let i = 0; i < batch.length; i++) {
+          const offer = batch[i] as any;
+          if (!offer) continue;
+          if ((offer.writer as Address).toLowerCase() !== address.toLowerCase()) continue;
+          try {
+            const [u, q] = await Promise.all([
+              getMeta(offer.underlying as Address),
+              getMeta(offer.quote as Address)
+            ]);
+            list.push({
+              id: BigInt(start + i), writer: offer.writer as Address, underlying: offer.underlying as Address,
+              quote: offer.quote as Address, underlyingAmount: offer.underlyingAmount as bigint,
+              strikeQuoteAmount: offer.strikeQuoteAmount as bigint, premiumQuoteAmount: offer.premiumQuoteAmount as bigint,
+              expiry: Number(offer.expiry), active: Boolean(offer.active), strikeTick: Number(offer.strikeTick),
+              uSym: u.sym, qSym: q.sym, uDec: u.dec, qDec: q.dec
+            });
+          } catch { /**/ }
+        }
       }
-      setOffers(list);
+
+      list.sort((a, b) => Number(b.id - a.id));
+      setOffers(list.slice(0, 30));
       if (list.length === 0) setStatus("No offers found. Write your first covered call below.");
     } catch (e: any) { setStatus(String(e?.shortMessage || e?.message || e)); }
     finally { setLoading(false); }

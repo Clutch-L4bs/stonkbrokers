@@ -308,7 +308,7 @@ export function FeedTab() {
       items.sort((a, b) => (a.id === b.id ? 0 : a.id > b.id ? -1 : 1));
       setFeed(items);
       if (items.length === 0) setStatus("No listings or swaps found.");
-      else if (usedFallback) setStatus("Loaded items (fallback: recent log scan).");
+      else setStatus("");
     } catch (e: any) {
       setStatus(String(e?.shortMessage || e?.message || e));
     } finally {

@@ -20,26 +20,37 @@ export async function fetchWhitelistedTokens(): Promise<ListedToken[]> {
     functionName: "tokenCount"
   })) as bigint;
 
+  const indices = Array.from({ length: Number(count) }, (_, i) => BigInt(i));
+  const addrs = await Promise.all(
+    indices.map((i) =>
+      publicClient.readContract({
+        address: config.tokenRegistry,
+        abi: StonkTokenRegistryAbi,
+        functionName: "tokenAt",
+        args: [i]
+      }) as Promise<Address>
+    )
+  );
+
+  const infos = await Promise.all(
+    addrs.map((addr) =>
+      publicClient
+        .readContract({
+          address: config.tokenRegistry,
+          abi: StonkTokenRegistryAbi,
+          functionName: "getToken",
+          args: [addr]
+        })
+        .catch(() => null)
+    )
+  );
+
   const out: ListedToken[] = [];
-  // Avoid bigint->number footguns (even though tokenCount will be small in practice).
-  for (let i = 0n; i < count; i++) {
-    const addr = (await publicClient.readContract({
-      address: config.tokenRegistry,
-      abi: StonkTokenRegistryAbi,
-      functionName: "tokenAt",
-      args: [i]
-    })) as Address;
-
-    const info = (await publicClient.readContract({
-      address: config.tokenRegistry,
-      abi: StonkTokenRegistryAbi,
-      functionName: "getToken",
-      args: [addr]
-    })) as any;
-
+  for (let i = 0; i < addrs.length; i++) {
+    const info = infos[i] as any;
     if (!info?.whitelisted) continue;
     out.push({
-      address: addr,
+      address: addrs[i],
       symbol: info.symbol as string,
       decimals: Number(info.decimals),
       logoURI: (info.logoURI as string) || undefined,
