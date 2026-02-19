@@ -120,7 +120,7 @@ function TradeTab() {
       const fromBlock = latest > 50_000n ? latest - 50_000n : 0n;
       const logs = await publicClient.getLogs({
         address: vault,
-        event: parseAbiItem("event OfferCreated(uint256 indexed offerId,address indexed writer)"),
+        event: parseAbiItem("event OfferCreated(uint256 indexed offerId,address indexed writer,address indexed underlying,uint256 underlyingAmount)"),
         fromBlock, toBlock: latest
       });
       const ids = [...new Set(logs.map((l) => l.args.offerId as bigint))].reverse().slice(0, 50);
@@ -451,7 +451,7 @@ function EarnTab() {
       const fromBlock = latest > 50_000n ? latest - 50_000n : 0n;
       const logs = await publicClient.getLogs({
         address: vault,
-        event: parseAbiItem("event OfferCreated(uint256 indexed offerId,address indexed writer)"),
+        event: parseAbiItem("event OfferCreated(uint256 indexed offerId,address indexed writer,address indexed underlying,uint256 underlyingAmount)"),
         args: { writer: address },
         fromBlock, toBlock: latest
       });
