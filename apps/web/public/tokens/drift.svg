@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#80ed99"/>
+      <stop offset="100%" stop-color="#57cc99"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="32" fill="url(#g)"/>
+  <path d="M55 110 C75 80 95 80 115 110 C135 140 155 140 175 110 L175 130 C155 160 135 160 115 130 C95 100 75 100 55 130Z" fill="white" opacity="0.9"/>
+  <text x="120" y="210" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="Arial,sans-serif" opacity="0.8">$DRIFT</text>
+</svg>

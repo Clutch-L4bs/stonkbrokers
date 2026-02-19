@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fee440"/>
+      <stop offset="100%" stop-color="#f15bb5"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="32" fill="url(#g)"/>
+  <path d="M120 45 C120 45 160 80 160 130 L145 150 L120 140 L95 150 L80 130 C80 80 120 45 120 45Z M110 155 L120 170 L130 155" fill="white" opacity="0.9"/>
+  <text x="120" y="210" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="Arial,sans-serif" opacity="0.8">$TURBO</text>
+</svg>

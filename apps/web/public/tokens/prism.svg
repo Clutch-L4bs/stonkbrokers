@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef476f"/>
+      <stop offset="100%" stop-color="#ffd166"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="32" fill="url(#g)"/>
+  <polygon points="120,45 165,105 120,175 75,105" fill="white" opacity="0.9"/><polygon points="120,45 140,105 120,105" fill="white" opacity="0.6"/><polygon points="120,105 140,105 120,175" fill="white" opacity="0.4"/>
+  <text x="120" y="210" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="Arial,sans-serif" opacity="0.8">$PRISM</text>
+</svg>

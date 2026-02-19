@@ -276,7 +276,7 @@ function MiniSwapModal({ open, onClose, token, symbol, imageURI }: {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-lm-terminal-gray">
           <div className="flex items-center gap-2">
-            {imageURI && !imageURI.includes("stonkbrokers.cash/logo") && (
+            {imageURI && !imageURI.endsWith("/logo.png") && (
               <img src={imageURI} alt="" className="w-6 h-6 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
             )}
             <div>
@@ -814,7 +814,7 @@ function FeaturedCarousel({
           const grad = symbolColor(x.symbol);
           const trading = isTradingLaunch(x);
           const hasSaleActivity = pct > 0;
-          const hasCustomImage = Boolean(x.imageURI && x.imageURI.startsWith("http") && !x.imageURI.includes("stonkbrokers.cash/logo"));
+          const hasCustomImage = Boolean(x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png"));
           const dp = displayPrice(x);
 
           return (
@@ -989,7 +989,7 @@ function LaunchDetailModal({
       >
         {/* Banner */}
         <div className={`h-28 bg-gradient-to-br ${grad} relative overflow-hidden`}>
-          {x.imageURI && x.imageURI.startsWith("http") && !x.imageURI.includes("stonkbrokers.cash/logo") && (
+          {x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png") && (
             <img
               src={x.imageURI}
               alt={x.symbol}
@@ -1618,7 +1618,7 @@ function LaunchesIndex() {
             const feeColor = feeType === "success" ? "text-lm-green" : feeType === "error" ? "text-lm-red" : "text-lm-gray";
             const dp = displayPrice(x);
             const grad = symbolColor(x.symbol);
-            const hasCustomImage = Boolean(x.imageURI && x.imageURI.startsWith("http") && !x.imageURI.includes("stonkbrokers.cash/logo"));
+            const hasCustomImage = Boolean(x.imageURI && (x.imageURI.startsWith("http") || x.imageURI.startsWith("/")) && !x.imageURI.endsWith("/logo.png"));
 
             return (
               <div key={key} className={`bg-lm-black border transition-all group cursor-pointer ${

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e76f51"/>
+      <stop offset="100%" stop-color="#264653"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="32" fill="url(#g)"/>
+  <path d="M120 45 L165 70 L165 120 C165 150 145 170 120 180 C95 170 75 150 75 120 L75 70Z" fill="white" opacity="0.9"/>
+  <text x="120" y="210" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="Arial,sans-serif" opacity="0.8">$TITAN</text>
+</svg>

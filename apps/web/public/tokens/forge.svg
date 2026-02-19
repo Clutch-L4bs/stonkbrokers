@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6d00"/>
+      <stop offset="100%" stop-color="#ff9e00"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="32" fill="url(#g)"/>
+  <path d="M80 110 L160 110 L155 130 L145 130 L145 155 L95 155 L95 130 L85 130 Z M100 80 L140 80 L150 110 L90 110Z" fill="white" opacity="0.9"/>
+  <text x="120" y="210" text-anchor="middle" fill="white" font-size="22" font-weight="bold" font-family="Arial,sans-serif" opacity="0.8">$FORGE</text>
+</svg>
