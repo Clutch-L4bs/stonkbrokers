@@ -71,14 +71,28 @@ function tickToPrice(tick: number, dec0: number, dec1: number): number {
   return rawPrice * decimalAdj;
 }
 
+function fmtSmall(num: number): string {
+  if (num <= 0 || !Number.isFinite(num)) return "0";
+  if (num >= 0.01) return num.toFixed(4);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
+
 function fmtHumanPrice(p: number): string {
   if (p === 0 || !Number.isFinite(p)) return "—";
   if (p >= 1_000_000) return `${(p / 1_000_000).toFixed(2)}M`;
   if (p >= 1_000) return `${(p / 1_000).toFixed(2)}K`;
   if (p >= 1) return p.toFixed(4);
   if (p >= 0.0001) return p.toFixed(6);
-  if (p >= 0.0000001) return p.toFixed(10);
-  return p.toExponential(2);
+  return fmtSmall(p);
 }
 
 function formatRatio(n: bigint, d: bigint, decimals = 6): string {
@@ -338,7 +352,7 @@ function fmtBal(raw: string): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   if (num >= 1) return num.toFixed(4);
   if (num >= 0.0001) return num.toFixed(6);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 
 /* ── Component ── */

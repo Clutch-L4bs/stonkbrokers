@@ -51,15 +51,48 @@ function tickToPrice(tick: number, dec0: number, dec1: number): number {
   return rawPrice * decimalAdj;
 }
 
+function fmtSmall(num: number): string {
+  if (num <= 0 || !Number.isFinite(num)) return "0";
+  if (num >= 0.01) return num.toFixed(4);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
+
 function fmtHumanPrice(p: number): string {
   if (p === 0 || !Number.isFinite(p)) return "—";
-  if (p >= 1_000_000_000) return `${(p / 1_000_000_000).toFixed(2)}B`;
-  if (p >= 1_000_000) return `${(p / 1_000_000).toFixed(2)}M`;
-  if (p >= 1_000) return `${(p / 1_000).toFixed(2)}K`;
+  if (p >= 1e12) return `${(p / 1e12).toFixed(2)}T`;
+  if (p >= 1e9) return `${(p / 1e9).toFixed(2)}B`;
+  if (p >= 1e6) return `${(p / 1e6).toFixed(2)}M`;
+  if (p >= 1e3) return `${(p / 1e3).toFixed(2)}K`;
   if (p >= 1) return p.toFixed(4);
   if (p >= 0.0001) return p.toFixed(6);
-  if (p >= 0.0000001) return p.toFixed(10);
-  return p.toExponential(2);
+  return fmtSmall(p);
+}
+
+function rangeBarPositions(lower: number, upper: number, current: number): { lo: number; hi: number; cur: number } | null {
+  if (lower <= 0 || upper <= 0 || current <= 0) return null;
+  const logLo = Math.log(lower);
+  const logHi = Math.log(upper);
+  const logCur = Math.log(current);
+  const span = logHi - logLo;
+  const padding = Math.max(span * 0.5, Math.abs(logCur - (logLo + logHi) / 2) * 1.2);
+  const viewMin = Math.min(logLo, logCur) - padding * 0.3;
+  const viewMax = Math.max(logHi, logCur) + padding * 0.3;
+  const viewSpan = viewMax - viewMin;
+  if (viewSpan <= 0) return null;
+  return {
+    lo: Math.max(0, Math.min(100, ((logLo - viewMin) / viewSpan) * 100)),
+    hi: Math.max(0, Math.min(100, ((logHi - viewMin) / viewSpan) * 100)),
+    cur: Math.max(0, Math.min(100, ((logCur - viewMin) / viewSpan) * 100))
+  };
 }
 
 function fmtBal(raw: string): string {
@@ -68,8 +101,7 @@ function fmtBal(raw: string): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   if (num >= 1) return num.toFixed(4);
-  if (num >= 0.0001) return num.toFixed(6);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 
 function PositionsTab() {
@@ -272,27 +304,39 @@ function PositionsTab() {
 
   const activePositions = positions.filter((p) => p.liquidity > 0n);
   const closedPositions = positions.filter((p) => p.liquidity <= 0n);
+  const inRangeCount = activePositions.filter((p) => p.inRange).length;
 
   return (
     <div className="space-y-3">
+      {/* Summary stats bar */}
+      {positions.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+            <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Active</div>
+            <div className="text-white font-bold text-sm lm-mono mt-0.5">{activePositions.length}</div>
+          </div>
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+            <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">In Range</div>
+            <div className="text-lm-green font-bold text-sm lm-mono mt-0.5">{inRangeCount} / {activePositions.length}</div>
+          </div>
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+            <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">With Fees</div>
+            <div className="text-lm-orange font-bold text-sm lm-mono mt-0.5">{positions.filter((p) => p.tokensOwed0 > 0n || p.tokensOwed1 > 0n).length}</div>
+          </div>
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+            <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Closed</div>
+            <div className="text-lm-terminal-lightgray font-bold text-sm lm-mono mt-0.5">{closedPositions.length}</div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {positions.length > 0 && (
-            <>
-              <span className="text-lm-terminal-lightgray text-[10px] lm-upper font-bold tracking-wider">
-                {activePositions.length} Active
-              </span>
-              {closedPositions.length > 0 && (
-                <span className="text-lm-terminal-lightgray text-[10px] lm-upper tracking-wider opacity-50">
-                  {closedPositions.length} Closed
-                </span>
-              )}
-            </>
-          )}
+        <div className="text-lm-terminal-lightgray text-[10px] lm-upper font-bold tracking-wider">
+          {busy ? "Loading positions..." : `${positions.length} Position${positions.length !== 1 ? "s" : ""}`}
         </div>
         <Button onClick={refresh} disabled={busy} className="text-lm-orange text-xs border border-lm-terminal-gray hover:border-lm-orange px-3 py-1 transition-colors">
-          {busy ? "Loading..." : "Refresh"}
+          {busy ? "..." : "Refresh"}
         </Button>
       </div>
 
@@ -314,144 +358,172 @@ function PositionsTab() {
             const actColor = actType === "success" ? "text-lm-green" : actType === "error" ? "text-lm-red" : "text-lm-gray";
             const isExpanded = expanded === key;
             const feeStr = `${(p.fee / 10000).toFixed(p.fee < 1000 ? 2 : p.fee < 10000 ? 1 : 0)}%`;
+            const barPos = hasLiq ? rangeBarPositions(p.priceLower, p.priceUpper, p.currentPrice) : null;
 
             return (
-              <div key={key} className={`bg-lm-terminal-darkgray border transition-all lm-card-hover ${
-                hasLiq && p.inRange ? "border-lm-green/30 lm-in-range" : hasLiq ? "border-lm-orange/30 lm-out-of-range" : "border-lm-terminal-gray"
+              <div key={key} className={`bg-lm-black border transition-all ${
+                hasLiq && p.inRange
+                  ? "border-lm-green/30 hover:border-lm-green/50"
+                  : hasLiq
+                    ? "border-lm-orange/30 hover:border-lm-orange/50"
+                    : "border-lm-terminal-gray hover:border-lm-terminal-lightgray"
               }`}>
-                {/* Card header (Camelot-style) */}
+                {/* Card header — always visible, clickable to expand */}
                 <button
                   type="button"
                   onClick={() => setExpanded(isExpanded ? null : key)}
-                  className="w-full p-3 flex items-center justify-between text-left hover:bg-lm-black/20"
+                  className="w-full p-3 text-left"
                 >
-                  <div className="flex items-center gap-2.5">
-                    {/* Status dot */}
-                    <span className={`lm-dot ${hasLiq ? (p.inRange ? "lm-dot-green lm-dot-pulse" : "lm-dot-red") : "lm-dot-gray"}`} />
-                    <span className="text-white font-bold text-sm">{p.sym0}/{p.sym1}</span>
-                    <span className="text-lm-terminal-lightgray text-[10px] bg-lm-black px-1.5 py-0.5 border border-lm-terminal-gray lm-mono">{feeStr}</span>
-                    <span className="text-lm-terminal-lightgray text-[10px] lm-mono opacity-50">#{p.tokenId.toString()}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${hasLiq ? (p.inRange ? "bg-lm-green animate-pulse" : "bg-lm-orange") : "bg-lm-terminal-gray"}`} />
+                      <span className="text-white font-bold text-sm">{p.sym0}/{p.sym1}</span>
+                      <span className="text-lm-terminal-lightgray text-[9px] bg-lm-terminal-darkgray px-1.5 py-0.5 border border-lm-terminal-gray lm-mono">{feeStr}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {hasLiq ? (
+                        <span className={`text-[8px] px-1.5 py-0.5 font-bold ${
+                          p.inRange
+                            ? "bg-lm-green/15 text-lm-green border border-lm-green/40"
+                            : "bg-lm-orange/15 text-lm-orange border border-lm-orange/40"
+                        }`}>
+                          {p.inRange ? "IN RANGE" : "OUT OF RANGE"}
+                        </span>
+                      ) : (
+                        <span className="text-[8px] px-1.5 py-0.5 font-bold bg-white/5 text-lm-terminal-lightgray border border-lm-terminal-gray">CLOSED</span>
+                      )}
+                      {hasFees && (
+                        <span className="text-[8px] px-1.5 py-0.5 font-bold bg-lm-green/15 text-lm-green border border-lm-green/40">FEES</span>
+                      )}
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 text-lm-terminal-lightgray transition-transform ${isExpanded ? "rotate-180" : ""}`}>
+                        <path fillRule="evenodd" d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z" clipRule="evenodd" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {hasLiq ? (
-                      <span className={`lm-badge font-bold ${
-                        p.inRange ? "lm-badge-filled-green" : "lm-badge-filled-red"
-                      }`}>
-                        {p.inRange ? "IN RANGE" : "OUT OF RANGE"}
-                      </span>
-                    ) : (
-                      <span className="lm-badge lm-badge-gray">CLOSED</span>
-                    )}
-                    {hasFees && <span className="lm-badge lm-badge-filled-green">FEES</span>}
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`w-3 h-3 text-lm-terminal-lightgray transition-transform ${isExpanded ? "rotate-180" : ""}`}>
-                      <path fillRule="evenodd" d="M4.22 6.22a.75.75 0 011.06 0L8 8.94l2.72-2.72a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 7.28a.75.75 0 010-1.06z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                </button>
 
-                {/* Compact summary always visible */}
-                <div className="px-3 pb-2 flex items-center gap-4 text-[10px] flex-wrap">
-                  {p.currentPrice > 0 && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-lm-terminal-lightgray">Price:</span>
-                      <span className="text-white lm-mono font-bold">{fmtHumanPrice(p.currentPrice)}</span>
+                  {/* Price + Range row */}
+                  <div className="mt-2 flex items-center gap-4 text-[10px] flex-wrap">
+                    {p.currentPrice > 0 && (
+                      <div>
+                        <span className="text-lm-terminal-lightgray">Current </span>
+                        <span className={`lm-mono font-bold ${p.inRange ? "text-lm-green" : "text-lm-orange"}`}>{fmtHumanPrice(p.currentPrice)}</span>
+                        <span className="text-lm-terminal-lightgray ml-0.5">{p.sym1}/{p.sym0}</span>
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-lm-terminal-lightgray">Range </span>
+                      <span className="text-white lm-mono">{fmtHumanPrice(p.priceLower)}</span>
+                      <span className="text-lm-terminal-gray mx-0.5">↔</span>
+                      <span className="text-white lm-mono">{fmtHumanPrice(p.priceUpper)}</span>
+                    </div>
+                    <div className="text-lm-terminal-lightgray lm-mono">#{key}</div>
+                  </div>
+
+                  {/* Range bar */}
+                  {barPos && (
+                    <div className="mt-2">
+                      <div className="relative h-2 bg-lm-terminal-darkgray rounded-sm overflow-hidden">
+                        {/* Range band */}
+                        <div className={`absolute top-0 h-full rounded-sm ${p.inRange ? "bg-lm-green/25" : "bg-lm-orange/25"}`}
+                          style={{ left: `${barPos.lo}%`, width: `${Math.max(1, barPos.hi - barPos.lo)}%` }} />
+                        {/* Range edges */}
+                        <div className={`absolute top-0 w-px h-full ${p.inRange ? "bg-lm-green/60" : "bg-lm-orange/60"}`}
+                          style={{ left: `${barPos.lo}%` }} />
+                        <div className={`absolute top-0 w-px h-full ${p.inRange ? "bg-lm-green/60" : "bg-lm-orange/60"}`}
+                          style={{ left: `${barPos.hi}%` }} />
+                        {/* Current price marker */}
+                        <div className="absolute top-0 w-0.5 h-full bg-white rounded-full shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+                          style={{ left: `${barPos.cur}%`, transform: "translateX(-50%)" }} />
+                      </div>
+                      <div className="flex justify-between mt-0.5 text-[8px] lm-mono text-lm-terminal-lightgray">
+                        <span>{fmtHumanPrice(p.priceLower)}</span>
+                        <span>{fmtHumanPrice(p.priceUpper)}</span>
+                      </div>
                     </div>
                   )}
-                  <div className="flex items-center gap-1">
-                    <span className="text-lm-terminal-lightgray">Range:</span>
-                    <span className="text-white lm-mono">{fmtHumanPrice(p.priceLower)}</span>
-                    <span className="text-lm-terminal-gray">—</span>
-                    <span className="text-white lm-mono">{fmtHumanPrice(p.priceUpper)}</span>
-                  </div>
-                </div>
 
-                {/* Range bar visualization */}
-                {hasLiq && p.currentPrice > 0 && (
-                  <div className="px-3 pb-2">
-                    <div className="relative h-1.5 bg-lm-black rounded-full overflow-hidden">
-                      <div className="absolute inset-0 bg-lm-orange/20 rounded-full"
-                        style={{
-                          left: "10%",
-                          right: "10%"
-                        }}
-                      />
-                      {(() => {
-                        const minP = Math.min(p.priceLower, p.currentPrice * 0.5);
-                        const maxP = Math.max(p.priceUpper, p.currentPrice * 2);
-                        const rangeWidth = maxP - minP;
-                        if (rangeWidth <= 0) return null;
-                        const lo = ((p.priceLower - minP) / rangeWidth) * 100;
-                        const hi = ((p.priceUpper - minP) / rangeWidth) * 100;
-                        const cur = ((p.currentPrice - minP) / rangeWidth) * 100;
-                        return (
-                          <>
-                            <div className={`absolute top-0 h-full ${p.inRange ? "bg-lm-green/40" : "bg-lm-orange/40"}`}
-                              style={{ left: `${lo}%`, width: `${hi - lo}%` }} />
-                            <div className="absolute top-0 w-1 h-full bg-white rounded-full"
-                              style={{ left: `${cur}%`, transform: "translateX(-50%)" }} />
-                          </>
-                        );
-                      })()}
+                  {/* Fees preview — always visible when fees exist */}
+                  {hasFees && (
+                    <div className="mt-2 flex items-center gap-1 text-[10px]">
+                      <span className="text-lm-green font-bold">Fees:</span>
+                      {p.tokensOwed0 > 0n && <span className="text-white lm-mono">{fmtBal(formatUnits(p.tokensOwed0, p.dec0))} {p.sym0}</span>}
+                      {p.tokensOwed0 > 0n && p.tokensOwed1 > 0n && <span className="text-lm-terminal-gray">+</span>}
+                      {p.tokensOwed1 > 0n && <span className="text-white lm-mono">{fmtBal(formatUnits(p.tokensOwed1, p.dec1))} {p.sym1}</span>}
                     </div>
-                  </div>
-                )}
+                  )}
+                </button>
 
                 {/* Expanded details */}
                 {isExpanded && (
-                  <div className="px-3 pb-3 space-y-2 border-t border-lm-terminal-gray">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 text-[10px]">
-                      <div>
-                        <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Price Range ({p.sym1}/{p.sym0})</div>
-                        <div className="text-white lm-mono text-xs mt-0.5">
-                          {fmtHumanPrice(p.priceLower)} — {fmtHumanPrice(p.priceUpper)}
-                        </div>
+                  <div className="px-3 pb-3 space-y-3 border-t border-lm-terminal-gray/50">
+                    {/* Detail stats grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3">
+                      <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+                        <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Min Price</div>
+                        <div className="text-white lm-mono text-xs font-bold mt-0.5">{fmtHumanPrice(p.priceLower)}</div>
+                        <div className="text-lm-terminal-lightgray text-[8px]">{p.sym1} per {p.sym0}</div>
+                      </div>
+                      <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+                        <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Max Price</div>
+                        <div className="text-white lm-mono text-xs font-bold mt-0.5">{fmtHumanPrice(p.priceUpper)}</div>
+                        <div className="text-lm-terminal-lightgray text-[8px]">{p.sym1} per {p.sym0}</div>
                       </div>
                       {p.currentPrice > 0 && (
-                        <div>
-                          <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Current Price</div>
-                          <div className="text-white lm-mono text-xs mt-0.5">
-                            {fmtHumanPrice(p.currentPrice)} {p.sym1}/{p.sym0}
-                          </div>
+                        <div className={`bg-lm-terminal-darkgray border p-2 ${p.inRange ? "border-lm-green/30" : "border-lm-orange/30"}`}>
+                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Current Price</div>
+                          <div className={`lm-mono text-xs font-bold mt-0.5 ${p.inRange ? "text-lm-green" : "text-lm-orange"}`}>{fmtHumanPrice(p.currentPrice)}</div>
+                          <div className="text-lm-terminal-lightgray text-[8px]">{p.sym1} per {p.sym0}</div>
                         </div>
                       )}
-                      <div>
-                        <div className="text-lm-terminal-lightgray lm-upper tracking-wider">Fee Tier</div>
-                        <div className="text-white text-xs mt-0.5">{feeStr}</div>
+                      <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
+                        <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Fee Tier</div>
+                        <div className="text-white lm-mono text-xs font-bold mt-0.5">{feeStr}</div>
+                        <div className="text-lm-terminal-lightgray text-[8px]">Tick {p.tickLower}→{p.tickUpper}</div>
                       </div>
                     </div>
 
+                    {/* Uncollected fees detail */}
                     {hasFees && (
-                      <div className="bg-lm-black border border-lm-green/20 p-2 text-xs space-y-0.5">
-                        <div className="text-lm-green text-[10px] font-bold lm-upper tracking-wider">Uncollected Fees</div>
-                        <div className="flex gap-4 text-white lm-mono">
-                          {p.tokensOwed0 > 0n && <span>{fmtBal(formatUnits(p.tokensOwed0, p.dec0))} {p.sym0}</span>}
-                          {p.tokensOwed1 > 0n && <span>{fmtBal(formatUnits(p.tokensOwed1, p.dec1))} {p.sym1}</span>}
+                      <div className="bg-lm-terminal-darkgray border border-lm-green/20 p-2.5">
+                        <div className="text-lm-green text-[9px] font-bold lm-upper tracking-wider mb-1.5">Uncollected Fees</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="text-lm-terminal-lightgray text-[8px]">{p.sym0}</div>
+                            <div className="text-white lm-mono text-sm font-bold">{fmtBal(formatUnits(p.tokensOwed0, p.dec0))}</div>
+                          </div>
+                          <div>
+                            <div className="text-lm-terminal-lightgray text-[8px]">{p.sym1}</div>
+                            <div className="text-white lm-mono text-sm font-bold">{fmtBal(formatUnits(p.tokensOwed1, p.dec1))}</div>
+                          </div>
                         </div>
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 flex-wrap pt-1">
-                      <Button
-                        size="sm"
-                        className="bg-lm-green/10 text-lm-green border-lm-green/30 hover:bg-lm-green/20 hover:border-lm-green"
-                        onClick={() => collectFees(p)} disabled={busy}>
-                        Collect Fees
-                      </Button>
+                    {/* Token addresses */}
+                    <div className="flex items-center gap-3 text-[9px] text-lm-terminal-lightgray">
+                      <a href={explorerAddr(p.token0)} target="_blank" rel="noreferrer" className="hover:text-lm-orange transition-colors lm-mono">{p.sym0}: {short(p.token0)}</a>
+                      <a href={explorerAddr(p.token1)} target="_blank" rel="noreferrer" className="hover:text-lm-orange transition-colors lm-mono">{p.sym1}: {short(p.token1)}</a>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {hasFees && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); collectFees(p); }} disabled={busy}
+                          className="text-[10px] px-3 py-1.5 bg-lm-green/10 text-lm-green border border-lm-green/30 hover:bg-lm-green/20 font-bold transition-colors disabled:opacity-40">
+                          Collect Fees
+                        </button>
+                      )}
                       {hasLiq && (
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => removeLiquidity(p)} disabled={busy}>
-                          Remove All Liquidity
-                        </Button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); removeLiquidity(p); }} disabled={busy}
+                          className="text-[10px] px-3 py-1.5 bg-lm-red/10 text-lm-red border border-lm-red/30 hover:bg-lm-red/20 font-bold transition-colors disabled:opacity-40">
+                          Remove Liquidity
+                        </button>
+                      )}
+                      {!hasFees && !hasLiq && (
+                        <span className="text-[10px] text-lm-terminal-lightgray">Position is closed with no remaining fees.</span>
                       )}
                       {actStatus && (
-                        <div className="flex items-center gap-1.5">
-                          {actType === "info" && <span className="lm-spinner" style={{ width: 10, height: 10, borderWidth: 1 }} />}
-                          {actType === "success" && <span className="lm-dot lm-dot-green" />}
-                          {actType === "error" && <span className="lm-dot lm-dot-red" />}
-                          <span className={`text-[10px] ${actColor}`}>{actStatus}</span>
-                        </div>
+                        <span className={`text-[10px] ${actColor}`}>{actStatus}</span>
                       )}
                     </div>
                   </div>
@@ -464,7 +536,7 @@ function PositionsTab() {
 
       {status && positions.length > 0 && (
         <div className="text-xs p-2.5 border border-lm-red/20 bg-lm-black flex items-center gap-2 text-lm-red">
-          <span className="lm-dot lm-dot-red flex-shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-lm-red flex-shrink-0" />
           <span>{status}</span>
         </div>
       )}

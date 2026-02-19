@@ -10,6 +10,24 @@ import { config } from "../../lib/config";
 import { ERC721EnumerableAbi, StonkMarketplaceAbi } from "../../lib/abis";
 
 /* ── Helpers ── */
+function fmtEthClean(wei: bigint): string {
+  const num = Number(formatEther(wei));
+  if (num === 0) return "0";
+  if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
+  if (num >= 1) return num.toFixed(4);
+  if (num >= 0.001) return num.toFixed(6);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
+
 function short(a: string) {
   return a.slice(0, 6) + "..." + a.slice(-4);
 }
@@ -439,7 +457,7 @@ export function FeedTab() {
                       <span className="text-white font-bold text-sm truncate">{title}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-bold lm-mono text-sm">{formatEther(it.price)} ETH</span>
+                      <span className="text-white font-bold lm-mono text-sm">{fmtEthClean(it.price)} ETH</span>
                       <span className={`lm-badge ${it.active ? "lm-badge-green" : "lm-badge-gray"}`}>
                         {it.active ? "ACTIVE" : "SOLD"}
                       </span>
@@ -462,7 +480,7 @@ export function FeedTab() {
                       <button type="button" onClick={() => buyListing(it)}
                         disabled={actionType[`l-${it.id}`] === "info"}
                         className="text-xs px-4 py-1.5 bg-lm-orange text-black font-bold hover:bg-lm-orange/80 transition-colors disabled:opacity-40 disabled:pointer-events-none">
-                        {actionType[`l-${it.id}`] === "info" ? "Processing..." : `Buy for ${formatEther(it.price)} ETH`}
+                        {actionType[`l-${it.id}`] === "info" ? "Processing..." : `Buy for ${fmtEthClean(it.price)} ETH`}
                       </button>
                     )}
                     {it.active && address && address.toLowerCase() === it.seller.toLowerCase() && (
@@ -959,7 +977,7 @@ export function MyActivityTab() {
                       {it.active ? "ACTIVE" : "SOLD"}
                     </span>
                   </div>
-                  <div className="text-white text-xs lm-mono font-bold">{formatEther(it.price)} ETH</div>
+                  <div className="text-white text-xs lm-mono font-bold">{fmtEthClean(it.price)} ETH</div>
                 </div>
                 <div className="flex items-center gap-2">
                   {it.active && (

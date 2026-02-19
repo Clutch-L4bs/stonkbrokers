@@ -35,6 +35,21 @@ function explorerTx(hash: string) {
   return `${config.blockExplorerUrl || "https://explorer.testnet.chain.robinhood.com"}/tx/${hash}`;
 }
 
+function fmtSmall(num: number): string {
+  if (num <= 0 || !Number.isFinite(num)) return "0";
+  if (num >= 0.01) return num.toFixed(4);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
+
 function fmtTokens(wei: bigint, decimals = 18): string {
   const raw = formatUnits(wei, decimals);
   const num = Number(raw);
@@ -43,8 +58,7 @@ function fmtTokens(wei: bigint, decimals = 18): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   if (num >= 1) return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (num >= 0.01) return num.toFixed(4);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 
 function fmtEth(wei: bigint): string {
@@ -54,8 +68,7 @@ function fmtEth(wei: bigint): string {
   if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
   if (num >= 1) return num.toFixed(4);
   if (num >= 0.001) return num.toFixed(6);
-  if (num >= 0.000001) return num.toFixed(8);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 
 function fmtPrice(weiPerToken: bigint): string {
@@ -63,8 +76,7 @@ function fmtPrice(weiPerToken: bigint): string {
   const num = Number(formatEther(weiPerToken));
   if (num >= 1) return `${num.toFixed(4)} ETH`;
   if (num >= 0.001) return `${num.toFixed(6)} ETH`;
-  if (num >= 0.000001) return `${(num * 1_000_000).toFixed(2)} µETH`;
-  return `${num.toExponential(2)} ETH`;
+  return `${fmtSmall(num)} ETH`;
 }
 
 function formatUnlockTime(ts: bigint): string {

@@ -51,7 +51,16 @@ function fmtEth(wei: bigint): string {
   if (num === 0) return "0";
   if (num >= 1) return num.toFixed(4);
   if (num >= 0.001) return num.toFixed(6);
-  return num.toExponential(2);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
 }
 
 const FEE_OPTIONS = [

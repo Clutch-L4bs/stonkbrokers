@@ -52,6 +52,21 @@ function explorerTx(hash: string) {
   return `${config.blockExplorerUrl || "https://explorer.testnet.chain.robinhood.com"}/tx/${hash}`;
 }
 
+function fmtSmall(num: number): string {
+  if (num <= 0 || !Number.isFinite(num)) return "0";
+  if (num >= 0.01) return num.toFixed(4);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
+
 function fmtBal(raw: string, maxDecimals = 6): string {
   const num = Number(raw);
   if (isNaN(num) || num === 0) return "0";
@@ -59,7 +74,7 @@ function fmtBal(raw: string, maxDecimals = 6): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   if (num >= 1) return num.toFixed(Math.min(4, maxDecimals));
   if (num >= 0.0001) return num.toFixed(maxDecimals);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 
 function fmtRate(rate: number): string {
@@ -68,7 +83,7 @@ function fmtRate(rate: number): string {
   if (rate >= 1_000) return `${(rate / 1_000).toFixed(2)}K`;
   if (rate >= 1) return rate.toFixed(4);
   if (rate >= 0.0001) return rate.toFixed(6);
-  return rate.toExponential(2);
+  return fmtSmall(rate);
 }
 
 /* ── Token Selector ── */

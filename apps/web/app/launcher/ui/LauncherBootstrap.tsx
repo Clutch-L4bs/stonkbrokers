@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Address, formatEther, formatUnits, parseAbiItem, parseEther } from "viem";
+import { Address, encodeFunctionData, formatEther, formatUnits, parseAbiItem, parseEther, parseUnits } from "viem";
 import { Button } from "../../components/Button";
 import { Panel } from "../../components/Terminal";
 import { TerminalTabs } from "../../components/Tabs";
@@ -17,11 +17,14 @@ import {
   StonkLpFeeSplitterAbi,
   StonkYieldStakingVaultAbi,
   ERC20MetadataAbi,
-  UniswapV3PoolAbi
+  UniswapV3PoolAbi,
+  QuoterV2Abi,
+  SwapRouterAbi
 } from "../../lib/abis";
 import { IntentTerminal, IntentAction } from "../../components/IntentTerminal";
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
+const ETH_USD = 2500;
 
 function isTradingLaunch(x: { finalized: boolean; pool?: Address }): boolean {
   return Boolean(x.finalized || (x.pool && x.pool !== ZERO));
@@ -101,6 +104,281 @@ function LauncherInfoModal({ open, onClose }: { open: boolean; onClose: () => vo
   );
 }
 
+/* ── Mini Swap Modal ── */
+
+function MiniSwapModal({ open, onClose, token, symbol, imageURI }: {
+  open: boolean; onClose: () => void;
+  token: Address; symbol: string; imageURI?: string;
+}) {
+  const { address, walletClient, requireCorrectChain } = useWallet();
+  const [amountIn, setAmountIn] = useState("");
+  const [quoteStr, setQuoteStr] = useState("");
+  const [quoteRaw, setQuoteRaw] = useState(0n);
+  const [quoting, setQuoting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+  const [statusType, setStatusType] = useState<"info"|"success"|"error">("info");
+  const [ethBal, setEthBal] = useState("");
+  const [tokenBal, setTokenBal] = useState("");
+  const [tokenDec, setTokenDec] = useState(18);
+  const [direction, setDirection] = useState<"buy"|"sell">("buy");
+  const [lastTxHash, setLastTxHash] = useState("");
+  const quoteTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setAmountIn(""); setQuoteStr(""); setQuoteRaw(0n); setStatus(""); setLastTxHash(""); setDirection("buy");
+  }, [open, token]);
+
+  useEffect(() => {
+    if (!open || !token) return;
+    (async () => {
+      try {
+        const dec = await publicClient.readContract({ address: token, abi: ERC20MetadataAbi, functionName: "decimals" });
+        setTokenDec(Number(dec));
+      } catch { setTokenDec(18); }
+    })();
+  }, [open, token]);
+
+  useEffect(() => {
+    if (!open || !address) { setEthBal(""); setTokenBal(""); return; }
+    (async () => {
+      try { setEthBal(formatUnits(await publicClient.getBalance({ address }), 18)); } catch { setEthBal("?"); }
+      try {
+        const b = await publicClient.readContract({ address: token, abi: ERC20Abi, functionName: "balanceOf", args: [address] }) as bigint;
+        setTokenBal(formatUnits(b, tokenDec));
+      } catch { setTokenBal("?"); }
+    })();
+  }, [open, address, token, tokenDec, busy]);
+
+  const FEE = 3000;
+  const SLIPPAGE = 100n;
+
+  const refreshQuote = useCallback(async () => {
+    if (!config.quoterV2 || !config.weth || !token) return;
+    const raw = amountIn.trim();
+    if (!raw || raw === "0") { setQuoteRaw(0n); setQuoteStr(""); return; }
+    setQuoting(true);
+    try {
+      const inAddr = direction === "buy" ? config.weth as Address : token;
+      const outAddr = direction === "buy" ? token : config.weth as Address;
+      const inDec = direction === "buy" ? 18 : tokenDec;
+      const outDec = direction === "buy" ? tokenDec : 18;
+      const amt = parseUnits(raw, inDec);
+      if (amt === 0n) { setQuoteRaw(0n); setQuoteStr(""); return; }
+
+      const feeOrder = [3000, 500, 10000];
+      let outAmt: bigint|null = null;
+      for (const f of feeOrder) {
+        try {
+          const res = await publicClient.readContract({
+            address: config.quoterV2, abi: QuoterV2Abi, functionName: "quoteExactInputSingle",
+            args: [{ tokenIn: inAddr, tokenOut: outAddr, amountIn: amt, fee: f, sqrtPriceLimitX96: 0n }]
+          }) as unknown as readonly [bigint, bigint, number, bigint];
+          if (res[0] > 0n) { outAmt = res[0]; break; }
+        } catch {}
+      }
+      if (outAmt === null) { setQuoteRaw(0n); setQuoteStr("No liquidity"); return; }
+      setQuoteRaw(outAmt);
+      setQuoteStr(formatUnits(outAmt, outDec));
+    } catch { setQuoteRaw(0n); setQuoteStr(""); }
+    finally { setQuoting(false); }
+  }, [amountIn, token, tokenDec, direction]);
+
+  useEffect(() => {
+    if (quoteTimer.current) clearTimeout(quoteTimer.current);
+    quoteTimer.current = setTimeout(() => { refreshQuote().catch(() => {}); }, 350);
+    return () => { if (quoteTimer.current) clearTimeout(quoteTimer.current); };
+  }, [refreshQuote]);
+
+  async function doSwap() {
+    if (!address || !walletClient || !config.swapRouter || !config.weth) return;
+    setBusy(true); setLastTxHash("");
+    try {
+      const raw = amountIn.trim();
+      const inDec = direction === "buy" ? 18 : tokenDec;
+      const amt = parseUnits(raw || "0", inDec);
+      if (amt === 0n) throw new Error("Enter an amount");
+
+      await requireCorrectChain();
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
+      const mOut = quoteRaw > 0n ? (quoteRaw * (10_000n - SLIPPAGE)) / 10_000n : 0n;
+
+      const inAddr = direction === "buy" ? config.weth as Address : token;
+      const outAddr = direction === "buy" ? token : config.weth as Address;
+      const isBuy = direction === "buy";
+
+      setStatus(isBuy ? `Swapping ${raw} ETH → $${symbol}...` : `Selling ${raw} $${symbol} → ETH...`);
+      setStatusType("info");
+
+      let hash: `0x${string}`;
+
+      if (isBuy) {
+        // ETH → Token: send ETH value, receive token to self
+        hash = await walletClient.writeContract({
+          address: config.swapRouter, abi: SwapRouterAbi, functionName: "exactInputSingle",
+          args: [{ tokenIn: inAddr, tokenOut: outAddr, fee: FEE, recipient: address, deadline, amountIn: amt, amountOutMinimum: mOut, sqrtPriceLimitX96: 0n }],
+          value: amt, chain: robinhoodTestnet, account: address
+        });
+      } else {
+        // Token → ETH: approve first, then swap, unwrap WETH to ETH
+        const allowance = await publicClient.readContract({ address: token, abi: ERC20Abi, functionName: "allowance", args: [address, config.swapRouter] }) as bigint;
+        if (allowance < amt) {
+          setStatus(`Approving $${symbol}...`); setStatusType("info");
+          const ah = await walletClient.writeContract({ address: token, abi: ERC20Abi, functionName: "approve", args: [config.swapRouter, amt], chain: robinhoodTestnet, account: address });
+          await publicClient.waitForTransactionReceipt({ hash: ah });
+        }
+        setStatus(`Selling ${raw} $${symbol} → ETH...`); setStatusType("info");
+        const swapData = encodeFunctionData({
+          abi: SwapRouterAbi, functionName: "exactInputSingle",
+          args: [{ tokenIn: inAddr, tokenOut: outAddr, fee: FEE, recipient: config.swapRouter, deadline, amountIn: amt, amountOutMinimum: mOut, sqrtPriceLimitX96: 0n }]
+        });
+        const unwrapData = encodeFunctionData({ abi: SwapRouterAbi, functionName: "unwrapWETH9", args: [mOut, address] });
+        hash = await walletClient.writeContract({
+          address: config.swapRouter, abi: SwapRouterAbi, functionName: "multicall",
+          args: [[swapData, unwrapData]], value: 0n, chain: robinhoodTestnet, account: address
+        });
+      }
+
+      setLastTxHash(hash);
+      setStatus("Confirming..."); setStatusType("info");
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status === "success") {
+        const outSym = isBuy ? `$${symbol}` : "ETH";
+        setStatus(`Swap confirmed! Received ~${quoteStr ? fmtNum(Number(quoteStr)) : "?"} ${outSym}`);
+        setStatusType("success");
+        setAmountIn(""); setQuoteRaw(0n); setQuoteStr("");
+      } else {
+        setStatus("Transaction reverted."); setStatusType("error");
+      }
+    } catch (e: any) {
+      const msg = String(e?.shortMessage || e?.message || e);
+      setStatus(msg.includes("rejected") || msg.includes("denied") ? "Cancelled." : `Failed: ${msg}`);
+      setStatusType("error");
+    } finally { setBusy(false); }
+  }
+
+  if (!open) return null;
+
+  const isBuy = direction === "buy";
+  const bal = isBuy ? ethBal : tokenBal;
+  const inSym = isBuy ? "ETH" : `$${symbol}`;
+  const outSym = isBuy ? `$${symbol}` : "ETH";
+  const qDisplay = quoting ? "Quoting..." : quoteStr && quoteStr !== "No liquidity"
+    ? `~${fmtNum(Number(quoteStr))} ${outSym}`
+    : quoteStr || "—";
+  const canSwap = amountIn && Number(amountIn) > 0 && quoteRaw > 0n && !busy;
+  const overBal = bal && amountIn && Number(amountIn) > Number(bal);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-lm-black border border-lm-orange w-full max-w-[380px] mx-4 shadow-2xl shadow-orange-900/20" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-lm-terminal-gray">
+          <div className="flex items-center gap-2">
+            {imageURI && !imageURI.includes("stonkbrokers.cash/logo") && (
+              <img src={imageURI} alt="" className="w-6 h-6 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            )}
+            <div>
+              <span className="text-white font-bold text-sm">Swap {symbol.toUpperCase()}</span>
+              <span className="text-lm-terminal-lightgray text-[10px] ml-2 lm-mono">{token.slice(0,6)}...{token.slice(-4)}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-lm-gray hover:text-white text-lg leading-none px-1">&times;</button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Buy / Sell toggle */}
+          <div className="flex gap-1">
+            <button type="button" onClick={() => { setDirection("buy"); setAmountIn(""); setQuoteRaw(0n); setQuoteStr(""); setStatus(""); }}
+              className={`flex-1 py-1.5 text-xs font-bold border transition-colors ${isBuy ? "border-lm-green text-lm-green bg-lm-green/5" : "border-lm-terminal-gray text-lm-gray hover:border-lm-gray"}`}>
+              Buy
+            </button>
+            <button type="button" onClick={() => { setDirection("sell"); setAmountIn(""); setQuoteRaw(0n); setQuoteStr(""); setStatus(""); }}
+              className={`flex-1 py-1.5 text-xs font-bold border transition-colors ${!isBuy ? "border-lm-red text-lm-red bg-lm-red/5" : "border-lm-terminal-gray text-lm-gray hover:border-lm-gray"}`}>
+              Sell
+            </button>
+          </div>
+
+          {/* Input */}
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-3 space-y-1.5">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-lm-terminal-lightgray lm-upper font-bold tracking-wider">You Pay</span>
+              {bal && <span className="text-lm-terminal-lightgray lm-mono">Bal: <span className="text-white">{fmtNum(Number(bal))}</span></span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-white font-bold text-sm min-w-[60px]">{inSym}</div>
+              <Input value={amountIn} onValueChange={setAmountIn} placeholder="0.0" className="h-9 text-sm font-bold flex-1" />
+              {bal && Number(bal) > 0 && (
+                <button type="button" onClick={() => setAmountIn(bal)} className="text-[9px] px-1.5 py-0.5 border border-lm-orange/30 text-lm-orange hover:border-lm-orange font-bold">MAX</button>
+              )}
+            </div>
+          </div>
+
+          {/* Arrow */}
+          <div className="flex justify-center -my-1">
+            <div className="w-8 h-8 flex items-center justify-center bg-lm-terminal-darkgray border border-lm-terminal-gray text-lm-terminal-lightgray">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Output */}
+          <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-3 space-y-1.5">
+            <div className="text-[10px] text-lm-terminal-lightgray lm-upper font-bold tracking-wider">You Receive</div>
+            <div className="flex items-center gap-2">
+              <div className="text-white font-bold text-sm min-w-[60px]">{outSym}</div>
+              <div className={`flex-1 text-right text-sm lm-mono ${quoteRaw > 0n ? "text-white font-bold" : "text-lm-terminal-lightgray"}`}>
+                {qDisplay}
+              </div>
+            </div>
+          </div>
+
+          {/* Insufficient balance warning */}
+          {overBal && (
+            <div className="text-lm-red text-[10px] flex items-center gap-1.5 px-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-lm-red flex-shrink-0" />
+              Insufficient {inSym} balance
+            </div>
+          )}
+
+          {/* Swap button */}
+          <Button
+            onClick={doSwap}
+            loading={busy}
+            disabled={!canSwap || !!overBal || !address}
+            variant={canSwap && !overBal ? "primary" : "default"}
+            size="lg"
+            className={`w-full ${canSwap && !overBal ? (isBuy ? "bg-lm-green text-black hover:bg-lm-green/80" : "bg-lm-red text-white hover:bg-lm-red/80") : ""}`}
+          >
+            {busy ? "Processing..." : !address ? "Connect Wallet" : !amountIn || Number(amountIn) <= 0 ? "Enter Amount" : overBal ? `Insufficient ${inSym}` : quoteStr === "No liquidity" ? "No Liquidity" : isBuy ? `Buy ${symbol.toUpperCase()}` : `Sell ${symbol.toUpperCase()}`}
+          </Button>
+
+          {/* Status */}
+          {status && (
+            <div className={`text-[10px] p-2 border ${statusType === "success" ? "text-lm-green border-lm-green/20" : statusType === "error" ? "text-lm-red border-lm-red/20" : "text-lm-gray border-lm-terminal-gray"} flex items-center gap-2`}>
+              {statusType === "info" && <span className="lm-spinner flex-shrink-0" style={{ width: 10, height: 10, borderWidth: 1.5 }} />}
+              {statusType === "success" && <span className="w-1.5 h-1.5 rounded-full bg-lm-green flex-shrink-0" />}
+              {statusType === "error" && <span className="w-1.5 h-1.5 rounded-full bg-lm-red flex-shrink-0" />}
+              <span className="truncate">{status}</span>
+              {lastTxHash && (
+                <a href={`${config.blockExplorerUrl || "https://explorer.testnet.chain.robinhood.com"}/tx/${lastTxHash}`}
+                  target="_blank" rel="noreferrer" className="text-lm-orange hover:underline ml-auto flex-shrink-0">Tx →</a>
+              )}
+            </div>
+          )}
+
+          {/* Quick info */}
+          <div className="text-[9px] text-lm-terminal-lightgray text-center">
+            0.3% fee tier · 1% max slippage · {isBuy ? "Auto-wraps ETH" : "Auto-unwraps to ETH"}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Human-friendly formatters ── */
 
 function short(a: string) { return a.slice(0, 6) + "..." + a.slice(-4); }
@@ -117,6 +395,30 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function fmtSmall(num: number): string {
+  if (num <= 0 || !Number.isFinite(num)) return "0";
+  if (num >= 0.01) return num.toFixed(4);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
+
+function fmtNum(num: number): string {
+  if (num === 0 || !Number.isFinite(num)) return "0";
+  if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(2)}K`;
+  if (num >= 1) return num.toFixed(4);
+  return fmtSmall(num);
+}
+
 function fmtTokens(wei: bigint, decimals = 18): string {
   const raw = formatUnits(wei, decimals);
   const num = Number(raw);
@@ -125,46 +427,82 @@ function fmtTokens(wei: bigint, decimals = 18): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   if (num >= 1) return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (num >= 0.01) return num.toFixed(4);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 
 function fmtEth(wei: bigint): string {
   if (wei === 0n) return "0";
-  const raw = formatUnits(wei, 18);
-  const num = Number(raw);
+  const num = Number(formatUnits(wei, 18));
   if (num >= 1000) return `${(num / 1000).toFixed(2)}K`;
   if (num >= 1) return num.toFixed(4);
+  if (num >= 0.01) return num.toFixed(4);
   if (num >= 0.001) return num.toFixed(6);
-  if (num >= 0.000001) return num.toFixed(8);
-  return num.toExponential(2);
+  return fmtSmall(num);
+}
+
+function fmtSupply(wei: bigint, decimals = 18): string {
+  const num = Number(formatUnits(wei, decimals));
+  if (num === 0) return "0";
+  if (num >= 1e9) return `${(num / 1e9).toFixed(1)}B`;
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}K`;
+  return num.toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function fmtUsd(usd: number): string {
+  if (!usd || !Number.isFinite(usd) || usd <= 0) return "—";
+  if (usd >= 1e12) return `$${(usd / 1e12).toFixed(2)}T`;
+  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
+  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(2)}M`;
+  if (usd >= 1e3) return `$${(usd / 1e3).toFixed(2)}K`;
+  if (usd >= 1) return `$${usd.toFixed(2)}`;
+  if (usd >= 0.01) return `$${usd.toFixed(4)}`;
+  if (usd >= 0.0001) return `$${usd.toFixed(6)}`;
+  return `$${fmtSmall(usd)}`;
+}
+
+function fmtEthShort(num: number): string {
+  if (!num || !Number.isFinite(num) || num <= 0) return "—";
+  if (num >= 1) return `${num.toFixed(4)} ETH`;
+  if (num >= 0.001) return `${num.toFixed(6)} ETH`;
+  return `${fmtSmall(num)} ETH`;
 }
 
 function fmtPrice(weiPerToken: bigint): string {
   if (weiPerToken === 0n) return "—";
-  const num = Number(formatEther(weiPerToken));
-  return fmtEthPrice(num);
+  const ethVal = Number(formatEther(weiPerToken));
+  return fmtUsd(ethVal * ETH_USD);
 }
 
-function fmtEthPrice(num: number): string {
-  if (!num || !Number.isFinite(num) || num <= 0) return "—";
-  if (num >= 1000) return `${(num / 1000).toFixed(2)}K ETH`;
-  if (num >= 1) return `${num.toFixed(4)} ETH`;
-  if (num >= 0.001) return `${num.toFixed(6)} ETH`;
-  if (num >= 0.000001) return `${(num * 1_000_000).toFixed(2)} µETH`;
-  if (num >= 1e-12) return `${(num * 1e9).toFixed(2)} nETH`;
-  return `${num.toExponential(2)} ETH`;
+function fmtPriceEth(weiPerToken: bigint): string {
+  if (weiPerToken === 0n) return "—";
+  return fmtEthShort(Number(formatEther(weiPerToken)));
 }
 
-function displayPrice(x: { marketPriceEth?: number; priceWeiPerToken: bigint; finalized: boolean; pool?: Address }): { label: string; value: string } {
+function displayPrice(x: { marketPriceEth?: number; priceWeiPerToken: bigint; finalized: boolean; pool?: Address }): { label: string; usd: string; eth: string } {
   const trading = Boolean(x.finalized || (x.pool && x.pool !== ZERO));
   if (trading && x.marketPriceEth && x.marketPriceEth > 0) {
-    return { label: "Market", value: fmtEthPrice(x.marketPriceEth) };
+    return { label: "Price", usd: fmtUsd(x.marketPriceEth * ETH_USD), eth: fmtEthShort(x.marketPriceEth) };
   }
   if (x.priceWeiPerToken > 0n) {
-    return { label: trading ? "Sale" : "Price", value: fmtPrice(x.priceWeiPerToken) };
+    const ethVal = Number(formatEther(x.priceWeiPerToken));
+    return { label: trading ? "Sale" : "Price", usd: fmtUsd(ethVal * ETH_USD), eth: fmtEthShort(ethVal) };
   }
-  return { label: "Price", value: "—" };
+  return { label: "Price", usd: "—", eth: "—" };
+}
+
+function marketCap(x: { marketPriceEth?: number; priceWeiPerToken: bigint; saleSupply: bigint; finalized: boolean; pool?: Address }): string {
+  const trading = Boolean(x.finalized || (x.pool && x.pool !== ZERO));
+  let priceEth = 0;
+  if (trading && x.marketPriceEth && x.marketPriceEth > 0) {
+    priceEth = x.marketPriceEth;
+  } else if (x.priceWeiPerToken > 0n) {
+    priceEth = Number(formatEther(x.priceWeiPerToken));
+  }
+  if (priceEth <= 0 || x.saleSupply <= 0n) return "—";
+  const supply = Number(formatUnits(x.saleSupply, 18));
+  const fdvUsd = priceEth * ETH_USD * supply;
+  return fmtUsd(fdvUsd);
 }
 
 function symbolColor(sym: string): string {
@@ -365,10 +703,12 @@ function saveLaunchCache(factory: Address, launches: LaunchData[]) {
 
 function FeaturedCarousel({
   launches,
-  onSelect
+  onSelect,
+  onTrade
 }: {
   launches: LaunchData[];
   onSelect: (x: LaunchData) => void;
+  onTrade: (token: Address, symbol: string, imageURI?: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -473,7 +813,9 @@ function FeaturedCarousel({
           const ethRaised = x.priceWeiPerToken > 0n && sold > 0n ? (sold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
           const grad = symbolColor(x.symbol);
           const trading = isTradingLaunch(x);
-          const showBar = x.saleSupply > 0n && (pct > 0 || !trading);
+          const hasSaleActivity = pct > 0;
+          const hasCustomImage = Boolean(x.imageURI && x.imageURI.startsWith("http") && !x.imageURI.includes("stonkbrokers.cash/logo"));
+          const dp = displayPrice(x);
 
           return (
             <div
@@ -488,7 +830,7 @@ function FeaturedCarousel({
             >
               {/* Gradient banner */}
               <div className={`h-20 bg-gradient-to-br ${grad} relative overflow-hidden`}>
-                {x.imageURI && x.imageURI.startsWith("http") && (
+                {hasCustomImage && (
                   <img
                     src={x.imageURI}
                     alt={x.symbol}
@@ -499,21 +841,21 @@ function FeaturedCarousel({
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 <div className="absolute bottom-2 left-3 flex items-center gap-2">
                   <div className="w-9 h-9 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-sm backdrop-blur-sm">
-                    {x.symbol.slice(0, 2)}
+                    {x.symbol.slice(0, 2).toUpperCase()}
                   </div>
-                  <div>
-                    <div className="text-white font-bold text-sm leading-tight">${x.symbol}</div>
-                    <div className="text-white/70 text-[10px] leading-tight truncate max-w-[180px]">{x.name}</div>
+                  <div className="min-w-0">
+                    <div className="text-white font-bold text-sm leading-tight truncate max-w-[140px]">${x.symbol}</div>
+                    <div className="text-white/70 text-[10px] leading-tight truncate max-w-[140px]">{x.name}</div>
                   </div>
                 </div>
                 {trading && x.token && (
-                  <Link
-                    href={`/exchange?in=ETH&out=${x.token}`}
-                    onClick={(e) => e.stopPropagation()}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onTrade(x.token, x.symbol, x.imageURI); }}
                     className="absolute bottom-2 right-2 text-[9px] px-2 py-1 border border-lm-green text-lm-green bg-black/40 hover:bg-lm-green/10 transition-colors font-bold"
                   >
                     Trade
-                  </Link>
+                  </button>
                 )}
                 <div className="absolute top-2 right-2">
                   <span className={`text-[9px] px-1.5 py-0.5 font-bold ${
@@ -530,34 +872,44 @@ function FeaturedCarousel({
 
               {/* Card body */}
               <div className="p-3 space-y-2">
-                {showBar && (
+                {hasSaleActivity && x.saleSupply > 0n && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px]">
-                      <span className="text-lm-terminal-lightgray">Sale</span>
+                      <span className="text-lm-terminal-lightgray">Sale {fmtSupply(sold)} / {fmtSupply(x.saleSupply)}</span>
                       <span className="text-white font-bold">{pct.toFixed(1)}%</span>
                     </div>
                     <div className="w-full h-1 bg-lm-terminal-darkgray">
                       <div
                         className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`}
-                        style={{ width: `${Math.min(100, pct)}%` }}
+                        style={{ width: `${Math.min(100, Math.max(pct > 0 ? 1 : 0, pct))}%` }}
                       />
                     </div>
                   </div>
                 )}
 
                 {/* Stats row */}
-                {(() => { const dp = displayPrice(x); return (
                 <div className="flex items-center justify-between text-[10px]">
-                  <div>
+                  <div title={dp.eth}>
                     <span className="text-lm-terminal-lightgray">{dp.label} </span>
-                    <span className="text-white lm-mono font-bold">{dp.value}</span>
+                    <span className={`lm-mono font-bold ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.usd}</span>
                   </div>
-                  <div>
-                    <span className="text-lm-terminal-lightgray">Raised </span>
-                    <span className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</span>
-                  </div>
+                  {(() => { const mcap = marketCap(x); return mcap !== "—" ? (
+                    <div title={dp.eth}>
+                      <span className="text-lm-terminal-lightgray">Mcap </span>
+                      <span className="text-white lm-mono font-bold">{mcap}</span>
+                    </div>
+                  ) : ethRaised > 0n ? (
+                    <div title={`${fmtEth(ethRaised)} ETH`}>
+                      <span className="text-lm-terminal-lightgray">Raised </span>
+                      <span className="text-white lm-mono font-bold">{fmtUsd(Number(formatUnits(ethRaised, 18)) * ETH_USD)}</span>
+                    </div>
+                  ) : x.saleSupply > 0n ? (
+                    <div>
+                      <span className="text-lm-terminal-lightgray">Supply </span>
+                      <span className="text-white lm-mono font-bold">{fmtSupply(x.saleSupply)}</span>
+                    </div>
+                  ) : null; })()}
                 </div>
-                ); })()}
 
                 {/* Footer */}
                 <div className="flex items-center justify-between text-[10px] pt-1 border-t border-lm-terminal-gray">
@@ -599,11 +951,13 @@ function FeaturedCarousel({
 function LaunchDetailModal({
   x,
   onClose,
-  onBuy
+  onBuy,
+  onTrade
 }: {
   x: LaunchData;
   onClose: () => void;
   onBuy: (x: LaunchData, ethAmount: string) => void;
+  onTrade?: (token: Address, symbol: string, imageURI?: string) => void;
 }) {
   const [buyAmt, setBuyAmt] = useState("");
 
@@ -635,7 +989,7 @@ function LaunchDetailModal({
       >
         {/* Banner */}
         <div className={`h-28 bg-gradient-to-br ${grad} relative overflow-hidden`}>
-          {x.imageURI && x.imageURI.startsWith("http") && (
+          {x.imageURI && x.imageURI.startsWith("http") && !x.imageURI.includes("stonkbrokers.cash/logo") && (
             <img
               src={x.imageURI}
               alt={x.symbol}
@@ -656,11 +1010,11 @@ function LaunchDetailModal({
           </button>
           <div className="absolute bottom-3 left-4 flex items-center gap-3">
             <div className="w-12 h-12 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-lg backdrop-blur-sm">
-              {x.symbol.slice(0, 2)}
+              {x.symbol.slice(0, 2).toUpperCase()}
             </div>
-            <div>
-              <div className="text-white font-bold text-lg leading-tight">${x.symbol}</div>
-              <div className="text-white/70 text-xs leading-tight">{x.name}</div>
+            <div className="min-w-0">
+              <div className="text-white font-bold text-lg leading-tight truncate max-w-[200px]">${x.symbol}</div>
+              <div className="text-white/70 text-xs leading-tight truncate max-w-[200px]">{x.name}</div>
             </div>
           </div>
           <div className="absolute bottom-3 right-4">
@@ -698,19 +1052,25 @@ function LaunchDetailModal({
           )}
 
           {/* Stats */}
-          {(() => { const dp = displayPrice(x); return (
-          <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
-              <div className="text-lm-terminal-lightgray text-[10px]">{dp.label === "Market" ? "Market Price" : "Sale Price"}</div>
-              <div className="text-white lm-mono font-bold">{dp.value}</div>
+          {(() => { const dp = displayPrice(x); const mcap = marketCap(x); const ethRaisedUsd = Number(formatUnits(ethRaised, 18)) * ETH_USD; return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2" title={dp.eth}>
+              <div className="text-lm-terminal-lightgray text-[10px]">{dp.label}</div>
+              <div className={`lm-mono font-bold ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.usd}</div>
+              <div className="text-lm-terminal-lightgray text-[9px] lm-mono mt-0.5">{dp.eth}</div>
             </div>
             <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
-              <div className="text-lm-terminal-lightgray text-[10px]">Total Raised</div>
-              <div className="text-white lm-mono font-bold">{fmtEth(ethRaised)} ETH</div>
+              <div className="text-lm-terminal-lightgray text-[10px]">Market Cap</div>
+              <div className="text-white lm-mono font-bold">{mcap}</div>
+            </div>
+            <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2" title={ethRaised > 0n ? `${fmtEth(ethRaised)} ETH` : ""}>
+              <div className="text-lm-terminal-lightgray text-[10px]">{ethRaised > 0n ? "Total Raised" : "Sale Supply"}</div>
+              <div className="text-white lm-mono font-bold">{ethRaised > 0n ? fmtUsd(ethRaisedUsd) : fmtSupply(x.saleSupply)}</div>
+              {ethRaised > 0n && <div className="text-lm-terminal-lightgray text-[9px] lm-mono mt-0.5">{fmtEth(ethRaised)} ETH</div>}
             </div>
             <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-2">
-              <div className="text-lm-terminal-lightgray text-[10px]">Sale Supply</div>
-              <div className="text-white lm-mono font-bold">{fmtTokens(x.saleSupply)}</div>
+              <div className="text-lm-terminal-lightgray text-[10px]">{ethRaised > 0n ? "Supply" : "Remaining"}</div>
+              <div className="text-white lm-mono font-bold">{ethRaised > 0n ? fmtSupply(x.saleSupply) : fmtSupply(x.remaining)}</div>
             </div>
           </div>
           ); })()}
@@ -774,9 +1134,10 @@ function LaunchDetailModal({
           {/* Actions for finalized */}
           <div className="flex items-center gap-2 flex-wrap">
             {trading && x.pool && x.pool !== ZERO && (
-              <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-xs px-3 py-1.5 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors" onClick={onClose}>
-                Trade on DEX
-              </Link>
+              <button type="button" onClick={() => { onClose(); onTrade?.(x.token, x.symbol, x.imageURI); }}
+                className="text-xs px-3 py-1.5 border border-lm-green text-lm-green hover:bg-lm-green/5 transition-colors">
+                Trade
+              </button>
             )}
             {trading && x.stakingVault && x.stakingVault !== ZERO && (
               <Link href={`/launcher/${x.launch}`} className="text-xs px-3 py-1.5 border border-lm-orange text-lm-orange hover:bg-lm-orange/5 transition-colors" onClick={onClose}>
@@ -807,6 +1168,7 @@ function LaunchesIndex() {
   const [buyType, setBuyType] = useState<Record<string, "info" | "success" | "error">>({});
   const [buyAmounts, setBuyAmounts] = useState<Record<string, string>>({});
   const [selectedLaunch, setSelectedLaunch] = useState<LaunchData | null>(null);
+  const [swapTarget, setSwapTarget] = useState<{ token: Address; symbol: string; imageURI?: string } | null>(null);
   const factory = config.launcherFactory as Address;
   const cacheHydratedRef = useRef(false);
   const lastFactoryRef = useRef<Address | null>(null);
@@ -1151,7 +1513,7 @@ function LaunchesIndex() {
           .filter((l) => isTradingLaunch(l) || (l.saleSupply > 0n && l.remaining > 0n))
           .slice(0, 8);
         return featured.length > 0 ? (
-          <FeaturedCarousel launches={featured} onSelect={setSelectedLaunch} />
+          <FeaturedCarousel launches={featured} onSelect={setSelectedLaunch} onTrade={(token, symbol, imageURI) => setSwapTarget({ token, symbol, imageURI })} />
         ) : null;
       })()}
 
@@ -1161,6 +1523,17 @@ function LaunchesIndex() {
           x={selectedLaunch}
           onClose={() => setSelectedLaunch(null)}
           onBuy={(x, amt) => quickBuy(x, amt)}
+          onTrade={(token, symbol, imageURI) => setSwapTarget({ token, symbol, imageURI })}
+        />
+      )}
+
+      {swapTarget && (
+        <MiniSwapModal
+          open
+          onClose={() => setSwapTarget(null)}
+          token={swapTarget.token}
+          symbol={swapTarget.symbol}
+          imageURI={swapTarget.imageURI}
         />
       )}
 
@@ -1232,7 +1605,7 @@ function LaunchesIndex() {
             const soldOut = x.remaining === 0n && x.saleSupply > 0n;
             const ethRaised = x.priceWeiPerToken > 0n && xSold > 0n ? (xSold * x.priceWeiPerToken) / (10n ** 18n) : 0n;
             const trading = isTradingLaunch(x);
-            const showBar = x.saleSupply > 0n && (pct > 0 || !trading);
+            const hasSaleActivity = pct > 0;
             const tokenEstimate = (buyAmounts[key] && x.priceWeiPerToken > 0n) ? (() => {
               try { const e = parseEther(buyAmounts[key] || "0"); return e > 0n ? fmtTokens((e * 10n ** 18n) / x.priceWeiPerToken) : ""; } catch { return ""; }
             })() : "";
@@ -1245,6 +1618,7 @@ function LaunchesIndex() {
             const feeColor = feeType === "success" ? "text-lm-green" : feeType === "error" ? "text-lm-red" : "text-lm-gray";
             const dp = displayPrice(x);
             const grad = symbolColor(x.symbol);
+            const hasCustomImage = Boolean(x.imageURI && x.imageURI.startsWith("http") && !x.imageURI.includes("stonkbrokers.cash/logo"));
 
             return (
               <div key={key} className={`bg-lm-black border transition-all group cursor-pointer ${
@@ -1252,17 +1626,17 @@ function LaunchesIndex() {
               }`}>
                 {/* Card banner */}
                 <div className={`h-16 bg-gradient-to-br ${grad} relative overflow-hidden`} onClick={() => setSelectedLaunch(x)}>
-                  {x.imageURI && x.imageURI.startsWith("http") && (
+                  {hasCustomImage && (
                     <img src={x.imageURI} alt={x.symbol} className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
                   <div className="absolute bottom-2 left-2.5 flex items-center gap-2">
                     <div className="w-8 h-8 bg-black/50 border border-white/20 flex items-center justify-center text-white font-bold text-xs backdrop-blur-sm">
-                      {x.symbol.slice(0, 2)}
+                      {x.symbol.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-white font-bold text-sm leading-tight truncate">${x.symbol}</div>
-                      <div className="text-white/60 text-[9px] leading-tight truncate max-w-[140px]">{x.name}</div>
+                      <div className="text-white font-bold text-sm leading-tight truncate max-w-[130px]">${x.symbol}</div>
+                      <div className="text-white/60 text-[9px] leading-tight truncate max-w-[130px]">{x.name}</div>
                     </div>
                   </div>
                   <div className="absolute top-1.5 right-1.5">
@@ -1280,27 +1654,47 @@ function LaunchesIndex() {
 
                 {/* Card body */}
                 <div className="p-2.5 space-y-2">
-                  {/* Price + Raised row */}
+                  {/* Price + Mcap */}
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5">
+                    <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5" title={dp.eth}>
                       <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">{dp.label}</div>
-                      <div className={`lm-mono text-[11px] font-bold mt-0.5 ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.value}</div>
+                      <div className={`lm-mono text-[11px] font-bold mt-0.5 ${trading && x.marketPriceEth ? "text-lm-green" : "text-white"}`}>{dp.usd}</div>
+                      <div className="text-lm-terminal-lightgray text-[8px] lm-mono mt-0.5">{dp.eth}</div>
                     </div>
                     <div className="bg-lm-terminal-darkgray border border-lm-terminal-gray p-1.5">
-                      <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Raised</div>
-                      <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{fmtEth(ethRaised)} ETH</div>
+                      {(() => { const mcap = marketCap(x); return mcap !== "—" ? (
+                        <>
+                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Mcap</div>
+                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{mcap}</div>
+                        </>
+                      ) : ethRaised > 0n ? (
+                        <>
+                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Raised</div>
+                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5" title={`${fmtEth(ethRaised)} ETH`}>{fmtUsd(Number(formatUnits(ethRaised, 18)) * ETH_USD)}</div>
+                        </>
+                      ) : x.saleSupply > 0n ? (
+                        <>
+                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Supply</div>
+                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{fmtSupply(x.saleSupply)}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-lm-terminal-lightgray text-[8px] lm-upper tracking-wider">Status</div>
+                          <div className="text-white lm-mono text-[11px] font-bold mt-0.5">{trading ? "Live" : "New"}</div>
+                        </>
+                      ); })()}
                     </div>
                   </div>
 
-                  {/* Sale progress bar (compact) */}
-                  {showBar && (
+                  {/* Sale progress bar — only show when there's meaningful sale data */}
+                  {hasSaleActivity && x.saleSupply > 0n && (
                     <div>
                       <div className="flex justify-between text-[9px] mb-0.5">
-                        <span className="text-lm-terminal-lightgray">Sale Progress</span>
+                        <span className="text-lm-terminal-lightgray">Sale {fmtSupply(xSold)} / {fmtSupply(x.saleSupply)}</span>
                         <span className="text-white font-bold">{pct.toFixed(1)}%</span>
                       </div>
                       <div className="w-full h-1 bg-lm-terminal-darkgray">
-                        <div className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                        <div className={`h-full transition-all ${trading ? "bg-lm-green" : "bg-lm-orange"}`} style={{ width: `${Math.min(100, Math.max(pct > 0 ? 1 : 0, pct))}%` }} />
                       </div>
                     </div>
                   )}
@@ -1330,7 +1724,8 @@ function LaunchesIndex() {
                   {trading && (
                     <div className="flex items-center gap-1 flex-wrap">
                       {x.pool && x.pool !== ZERO && (
-                        <Link href={`/exchange?in=ETH&out=${x.token}`} className="text-[9px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/10 transition-colors font-bold">Trade</Link>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setSwapTarget({ token: x.token, symbol: x.symbol, imageURI: x.imageURI }); }}
+                          className="text-[9px] px-2 py-1 border border-lm-green text-lm-green hover:bg-lm-green/10 transition-colors font-bold">Trade</button>
                       )}
                       {x.stakingVault && x.stakingVault !== ZERO && (
                         <Link href={`/launcher/${x.launch}`} className="text-[9px] px-2 py-1 border border-lm-orange text-lm-orange hover:bg-lm-orange/10 transition-colors font-bold">Stake</Link>

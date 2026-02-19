@@ -56,6 +56,20 @@ function short(a: string) { return a.slice(0, 6) + "..." + a.slice(-4); }
 function explorerAddr(addr: string) {
   return `${config.blockExplorerUrl || "https://explorer.testnet.chain.robinhood.com"}/address/${addr}`;
 }
+function fmtSmall(num: number): string {
+  if (num <= 0 || !Number.isFinite(num)) return "0";
+  if (num >= 0.01) return num.toFixed(4);
+  if (num >= 0.0001) return num.toFixed(6);
+  const s = num.toFixed(20);
+  const match = s.match(/^0\.(0+)(\d{2,4})/);
+  if (match) {
+    const zeros = match[1].length;
+    const sig = match[2].replace(/0+$/, "") || match[2].slice(0, 2);
+    const sub = String(zeros).split("").map(d => "₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+    return `0.0${sub}${sig}`;
+  }
+  return num.toFixed(8);
+}
 function fmtBal(raw: string): string {
   const num = Number(raw);
   if (isNaN(num) || num === 0) return "0";
@@ -63,7 +77,7 @@ function fmtBal(raw: string): string {
   if (num >= 1_000) return `${(num / 1_000).toFixed(2)}K`;
   if (num >= 1) return num.toFixed(4);
   if (num >= 0.0001) return num.toFixed(6);
-  return num.toExponential(2);
+  return fmtSmall(num);
 }
 function formatExpiry(ts: number): string {
   if (!ts) return "—";
